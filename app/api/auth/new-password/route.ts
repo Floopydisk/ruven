@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { sql } from "@/lib/db-direct"
-import { Stack } from "@stackframe/stack-js"
+import { Stack } from "@stackframe/stack"
 
 // Initialize Stack
 const stack = new Stack({
