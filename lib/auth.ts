@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import bcrypt from "bcryptjs"
 import crypto from "crypto"
 import { query } from "./db"
+import { sql } from "@/lib/db-direct"
 
 // Types
 export type User = {
@@ -11,6 +12,8 @@ export type User = {
   firstName: string
   lastName: string
   profileImage: string | null
+  role?: string
+  isVendor?: boolean
 }
 
 export type Vendor = {
@@ -80,6 +83,7 @@ export async function registerUser(
     firstName: user.first_name,
     lastName: user.last_name,
     profileImage: user.profile_image,
+    isVendor,
   }
 }
 
@@ -120,12 +124,16 @@ export async function loginUser(email: string, password: string): Promise<User> 
     path: "/",
   })
 
+  // Check if user is a vendor
+  const isVendor = await checkIsVendor(user.id)
+
   return {
     id: user.id,
     email: user.email,
     firstName: user.first_name,
     lastName: user.last_name,
     profileImage: user.profile_image,
+    isVendor,
   }
 }
 
@@ -141,34 +149,52 @@ export async function logoutUser(): Promise<void> {
 }
 
 export async function getCurrentUser(): Promise<User | null> {
-  const token = cookies().get(SESSION_COOKIE_NAME)?.value
-  if (!token) return null
+  try {
+    const sessionToken = cookies().get("auth_session")?.value
 
-  // Find valid session
-  const sessions = await query("SELECT * FROM sessions WHERE token = $1 AND expires_at > NOW()", [token])
+    if (!sessionToken) {
+      return null
+    }
 
-  if (sessions.length === 0) {
-    cookies().delete(SESSION_COOKIE_NAME)
+    const sessions = await sql`
+      SELECT s.*, u.id as user_id, u.email, u.first_name, u.last_name, u.profile_image, u.role
+      FROM sessions s
+      JOIN users u ON s.user_id = u.id
+      WHERE s.token = ${sessionToken} AND s.expires_at > NOW()
+    `
+
+    if (sessions.length === 0) {
+      return null
+    }
+
+    const session = sessions[0]
+
+    // Update last active timestamp
+    await sql`
+      UPDATE sessions SET last_active = NOW() WHERE token = ${sessionToken}
+    `
+
+    // Check if user is a vendor
+    const isVendor = await checkIsVendor(session.user_id)
+
+    return {
+      id: session.user_id,
+      email: session.email,
+      firstName: session.first_name,
+      lastName: session.last_name,
+      profileImage: session.profile_image,
+      role: session.role,
+      isVendor,
+    }
+  } catch (error) {
+    console.error("Error getting current user:", error)
     return null
   }
+}
 
-  // Get user from session
-  const userId = sessions[0].user_id
-  const users = await query("SELECT * FROM users WHERE id = $1", [userId])
-
-  if (users.length === 0) {
-    cookies().delete(SESSION_COOKIE_NAME)
-    return null
-  }
-
-  const user = users[0]
-  return {
-    id: user.id,
-    email: user.email,
-    firstName: user.first_name,
-    lastName: user.last_name,
-    profileImage: user.profile_image,
-  }
+async function checkIsVendor(userId: number): Promise<boolean> {
+  const vendors = await query("SELECT * FROM vendors WHERE user_id = $1", [userId])
+  return vendors.length > 0
 }
 
 export async function getVendorForUser(userId: number): Promise<Vendor | null> {
@@ -210,4 +236,24 @@ export async function requireVendor(): Promise<{ user: User; vendor: Vendor }> {
   }
 
   return { user, vendor }
+}
+
+export async function isUserVendor(userId: number) {
+  try {
+    const vendors = await sql`SELECT * FROM vendors WHERE user_id = ${userId}`
+    return vendors.length > 0
+  } catch (error) {
+    console.error("Error checking if user is vendor:", error)
+    return false
+  }
+}
+
+export async function isUserAdmin(userId: number) {
+  try {
+    const users = await sql`SELECT role FROM users WHERE id = ${userId}`
+    return users.length > 0 && users[0].role === "admin"
+  } catch (error) {
+    console.error("Error checking if user is admin:", error)
+    return false
+  }
 }

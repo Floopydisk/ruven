@@ -1,59 +1,32 @@
 import { NextResponse } from "next/server"
-import { cookies } from "next/headers"
+import { getCurrentUser } from "@/lib/auth"
 import { sql } from "@/lib/db-direct"
 import { generateSecret, generateQRCode } from "@/lib/auth-service"
-import { logSecurityEvent } from "@/lib/security-logger"
 
-export async function POST(request: Request) {
+export async function POST() {
   try {
-    // Get session token from cookies
-    const sessionToken = cookies().get("auth_session")?.value
+    const user = await getCurrentUser()
 
-    if (!sessionToken) {
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Validate session
-    const sessions = await sql`
-      SELECT s.*, u.id as user_id, u.email
-      FROM sessions s
-      JOIN users u ON s.user_id = u.id
-      WHERE s.token = ${sessionToken} AND s.expires_at > NOW()
-    `
-
-    if (sessions.length === 0) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    const session = sessions[0]
-    const userId = session.user_id
-    const email = session.email
-
-    // Generate secret
+    // Generate a new TOTP secret
     const secret = await generateSecret()
 
-    // Generate QR code
-    const qrCode = await generateQRCode(email, secret)
+    // Generate a QR code for the secret
+    const qrCode = await generateQRCode(user.email, secret)
 
-    // Store secret temporarily
+    // Store the secret temporarily (not enabled yet until verified)
     await sql`
-      UPDATE users
-      SET two_factor_temp_secret = ${secret}
-      WHERE id = ${userId}
-    `
+     UPDATE users 
+     SET two_factor_secret = ${secret}, two_factor_enabled = false 
+     WHERE id = ${user.id}
+   `
 
-    // Log 2FA setup
-    await logSecurityEvent({
-      userId,
-      eventType: "two_factor_setup_initiated",
-      ipAddress: request.headers.get("x-forwarded-for") || "unknown",
-      userAgent: request.headers.get("user-agent") || "unknown",
-      details: { email },
-    })
-
-    return NextResponse.json({ qrCode, secret })
+    return NextResponse.json({ secret, qrCode })
   } catch (error) {
-    console.error("2FA setup error:", error)
-    return NextResponse.json({ error: "Failed to set up two-factor authentication" }, { status: 500 })
+    console.error("Error setting up 2FA:", error)
+    return NextResponse.json({ error: "Failed to setup 2FA" }, { status: 500 })
   }
 }
