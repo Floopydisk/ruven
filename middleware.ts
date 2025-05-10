@@ -1,122 +1,46 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { validateSession } from "./lib/stack-auth"
 
-// Define public routes that don't require authentication
-const publicRoutes = [
-  "/",
-  "/auth/login",
-  "/auth/register",
-  "/auth/reset-password",
-  "/auth/new-password",
-  "/auth/verify-email",
-  "/landing",
-  "/home",
-]
-
-// Define routes that require authentication
-const protectedRoutes = ["/dashboard", "/profile", "/messages", "/browse", "/vendors", "/notifications", "/sell"]
-
-// Define routes that require vendor role
-const vendorRoutes = ["/dashboard/vendor"]
-
-// Define routes that require admin role
-const adminRoutes = ["/admin", "/dashboard/admin"]
-
-export async function middleware(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Allow public assets and API routes
-  if (
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/api") ||
-    pathname.startsWith("/static") ||
-    pathname.startsWith("/images") ||
-    pathname.startsWith("/favicon")
-  ) {
+  // Check if user is authenticated by looking for the auth_session cookie
+  const isAuthenticated = request.cookies.has("auth_session")
+
+  // Skip middleware for API routes and static assets
+  if (pathname.startsWith("/api") || pathname.startsWith("/_next") || pathname.includes("/favicon.ico")) {
     return NextResponse.next()
   }
 
-  // Check if the route is public
-  const isPublicRoute = publicRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`))
+  // Public routes that don't require authentication
+  const publicRoutes = ["/", "/landing", "/auth/login", "/auth/register", "/auth/reset-password", "/home"]
 
-  if (isPublicRoute) {
-    return NextResponse.next()
+  // Routes that require authentication
+  const protectedRoutes = ["/dashboard", "/profile", "/messages", "/sell", "/browse", "/notifications"]
+
+  // Redirect root to home for authenticated users
+  if (pathname === "/" && isAuthenticated) {
+    return NextResponse.redirect(new URL("/home", request.url))
   }
 
-  // Get session token from cookies
-  const sessionToken = request.cookies.get("session_token")?.value
+  // Check if the current route requires authentication
+  const requiresAuth = protectedRoutes.some((route) => pathname.startsWith(route))
 
-  // If no session token and route requires authentication, redirect to login
-  if (!sessionToken) {
-    const url = new URL("/auth/login", request.url)
-    url.searchParams.set("callbackUrl", pathname)
-    return NextResponse.redirect(url)
+  // If route requires authentication and user is not authenticated, redirect to login
+  if (requiresAuth && !isAuthenticated) {
+    const redirectUrl = new URL("/auth/login", request.url)
+    redirectUrl.searchParams.set("redirect", pathname)
+    return NextResponse.redirect(redirectUrl)
   }
 
-  // Validate session
-  const sessionData = await validateSession(sessionToken)
-
-  // If session is invalid, redirect to login
-  if (!sessionData) {
-    const url = new URL("/auth/login", request.url)
-    url.searchParams.set("callbackUrl", pathname)
-    return NextResponse.redirect(url)
-  }
-
-  // Check if route requires vendor role
-  const isVendorRoute = vendorRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`))
-
-  if (isVendorRoute) {
-    // Check if user is a vendor
-    const isVendor = await checkIfUserIsVendor(sessionData.user.id)
-
-    if (!isVendor) {
-      return NextResponse.redirect(new URL("/sell", request.url))
-    }
-  }
-
-  // Check if route requires admin role
-  const isAdminRoute = adminRoutes.some((route) => pathname === route || pathname.startsWith(`${route}/`))
-
-  if (isAdminRoute) {
-    // Check if user is an admin
-    const isAdmin = await checkIfUserIsAdmin(sessionData.user.id)
-
-    if (!isAdmin) {
-      return NextResponse.redirect(new URL("/dashboard", request.url))
-    }
+  // Prevent authenticated users from accessing login/register pages
+  if ((pathname.startsWith("/auth/login") || pathname.startsWith("/auth/register")) && isAuthenticated) {
+    return NextResponse.redirect(new URL("/home", request.url))
   }
 
   return NextResponse.next()
 }
 
-async function checkIfUserIsVendor(userId: string | number) {
-  try {
-    const { sql } = await import("./lib/db-direct")
-    const result = await sql`
-      SELECT id FROM vendors WHERE user_id = ${userId}
-    `
-    return result.length > 0
-  } catch (error) {
-    console.error("Error checking vendor status:", error)
-    return false
-  }
-}
-
-async function checkIfUserIsAdmin(userId: string | number) {
-  try {
-    const { sql } = await import("./lib/db-direct")
-    const result = await sql`
-      SELECT role FROM users WHERE id = ${userId} AND role = 'admin'
-    `
-    return result.length > 0
-  } catch (error) {
-    console.error("Error checking admin status:", error)
-    return false
-  }
-}
-
 export const config = {
-  matcher: ["/((?!api/auth/|_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 }
