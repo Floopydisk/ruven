@@ -37,13 +37,28 @@ export function useRealTimeMessaging(conversationId: number) {
     // Fetch Pusher configuration from server
     const initializePusher = async () => {
       try {
+        // Get configuration from the server
         const response = await fetch("/api/config/pusher")
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch Pusher configuration")
+        }
+
         const config = await response.json()
 
+        // Get the Pusher key from a secure endpoint
+        const keyResponse = await fetch("/api/messaging/pusher-key")
+
+        if (!keyResponse.ok) {
+          throw new Error("Failed to fetch Pusher key")
+        }
+
+        const { key } = await keyResponse.json()
+
         // Initialize Pusher with config from server
-        const pusherInstance = new Pusher(config.key, {
+        const pusherInstance = new Pusher(key, {
           cluster: config.cluster,
-          authEndpoint: "/api/pusher/auth",
+          authEndpoint: config.authEndpoint,
           forceTLS: true,
         })
 
@@ -55,6 +70,7 @@ export function useRealTimeMessaging(conversationId: number) {
         setChannel(userChannel)
       } catch (error) {
         console.error("Failed to initialize Pusher:", error)
+        setError("Failed to initialize real-time messaging")
       }
     }
 

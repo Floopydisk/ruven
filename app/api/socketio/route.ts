@@ -1,117 +1,125 @@
 import { NextResponse } from "next/server"
-import { getCurrentUser } from "@/lib/auth"
-import { sql } from "@/lib/db-direct"
+import { cookies } from "next/headers"
 import Pusher from "pusher"
-
-// Initialize Pusher
-const pusher = new Pusher({
-  appId: process.env.PUSHER_APP_ID || "",
-  key: process.env.NEXT_PUBLIC_PUSHER_KEY || "",
-  secret: process.env.PUSHER_SECRET || "",
-  cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || "us2",
-  useTLS: true,
-})
+import { sql } from "@/lib/db-direct"
+import { logSecurityEvent } from "@/lib/security-logger"
 
 export async function POST(request: Request) {
   try {
-    // Get current user
-    const user = await getCurrentUser()
-    if (!user) {
+    // Get session token from cookies
+    const sessionToken = cookies().get("auth_session")?.value
+
+    if (!sessionToken) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Get user from session
+    const sessions = await sql`
+      SELECT s.*, u.id
+      FROM sessions s
+      JOIN users u ON s.user_id = u.id
+      WHERE s.token = ${sessionToken} AND s.expires_at > NOW()
+    `
+
+    if (sessions.length === 0) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const userId = sessions[0].user_id
+
+    // Initialize Pusher server
+    const pusher = new Pusher({
+      appId: process.env.PUSHER_APP_ID!,
+      key: process.env.PUSHER_KEY!,
+      secret: process.env.PUSHER_SECRET!,
+      cluster: process.env.PUSHER_CLUSTER!,
+      useTLS: true,
+    })
+
+    // Get event data from request
     const { event, data } = await request.json()
 
-    if (event === "message") {
-      const { conversationId, messageId, message, hasAttachment, attachmentUrl, attachmentType, attachmentName } = data
+    // Handle different event types
+    switch (event) {
+      case "message":
+        // Add sender ID to data
+        data.senderId = userId
+        data.timestamp = new Date().toISOString()
 
-      // Get conversation details
-      const conversations = await sql`
-        SELECT user_id, vendor_id FROM conversations WHERE id = ${conversationId}
-      `
+        // Trigger event to recipient's channel
+        await pusher.trigger(`private-user-${data.recipientId}`, "message", data)
 
-      if (conversations.length === 0) {
-        return NextResponse.json({ error: "Conversation not found" }, { status: 404 })
-      }
+        // Update message status to delivered
+        if (data.messageId) {
+          await sql`
+            UPDATE messages
+            SET status = 'delivered'
+            WHERE id = ${data.messageId}
+          `
+        }
+        break
 
-      const conversation = conversations[0]
-      const targetUserId = user.id === conversation.user_id ? conversation.vendor_id : conversation.user_id
+      case "typing":
+        // Add user ID to data
+        data.userId = userId
 
-      // Trigger Pusher event
-      await pusher.trigger(`private-user-${targetUserId}`, "message", {
-        conversationId,
-        senderId: user.id,
-        message,
-        messageId,
-        timestamp: new Date().toISOString(),
-        status: "delivered",
-        hasAttachment,
-        attachmentUrl,
-        attachmentType,
-        attachmentName,
-      })
+        // Get conversation participants
+        const participants = await sql`
+          SELECT user_id, vendor_id
+          FROM conversations
+          WHERE id = ${data.conversationId}
+        `
 
-      // Update message status to delivered
-      await sql`
-        UPDATE messages 
-        SET status = 'delivered', delivered_at = NOW() 
-        WHERE id = ${messageId}
-      `
-    } else if (event === "typing") {
-      const { conversationId, isTyping } = data
+        if (participants.length > 0) {
+          const conversation = participants[0]
+          const recipientId = userId === conversation.user_id ? conversation.vendor_id : conversation.user_id
 
-      // Get conversation details
-      const conversations = await sql`
-        SELECT user_id, vendor_id FROM conversations WHERE id = ${conversationId}
-      `
+          // Trigger typing event to recipient's channel
+          await pusher.trigger(`private-user-${recipientId}`, "typing", data)
+        }
+        break
 
-      if (conversations.length === 0) {
-        return NextResponse.json({ error: "Conversation not found" }, { status: 404 })
-      }
+      case "read_receipt":
+        // Update message status in database
+        if (data.messageId) {
+          await sql`
+            UPDATE messages
+            SET status = 'read', read_at = NOW()
+            WHERE id = ${data.messageId}
+          `
 
-      const conversation = conversations[0]
-      const targetUserId = user.id === conversation.user_id ? conversation.vendor_id : conversation.user_id
+          // Get message sender
+          const messages = await sql`
+            SELECT sender_id
+            FROM messages
+            WHERE id = ${data.messageId}
+          `
 
-      // Trigger Pusher event
-      await pusher.trigger(`private-user-${targetUserId}`, "typing", {
-        conversationId,
-        userId: user.id,
-        isTyping,
-      })
-    } else if (event === "read_receipt") {
-      const { conversationId, messageId } = data
+          if (messages.length > 0) {
+            const senderId = messages[0].sender_id
 
-      // Get conversation details
-      const conversations = await sql`
-        SELECT user_id, vendor_id FROM conversations WHERE id = ${conversationId}
-      `
+            // Trigger read receipt event to sender's channel
+            await pusher.trigger(`private-user-${senderId}`, "read_receipt", data)
+          }
+        }
+        break
 
-      if (conversations.length === 0) {
-        return NextResponse.json({ error: "Conversation not found" }, { status: 404 })
-      }
-
-      const conversation = conversations[0]
-      const targetUserId = user.id === conversation.user_id ? conversation.vendor_id : conversation.user_id
-
-      // Update message status to read
-      await sql`
-        UPDATE messages 
-        SET status = 'read', read = true, read_at = NOW() 
-        WHERE id = ${messageId}
-      `
-
-      // Trigger Pusher event
-      await pusher.trigger(`private-user-${targetUserId}`, "read_receipt", {
-        conversationId,
-        messageId,
-        readBy: user.id,
-        timestamp: new Date().toISOString(),
-      })
+      default:
+        return NextResponse.json({ error: "Invalid event type" }, { status: 400 })
     }
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Socket error:", error)
+    console.error("SocketIO error:", error)
+
+    // Log security event
+    await logSecurityEvent("api_error", {
+      details: {
+        api: "socketio",
+        error: error instanceof Error ? error.message : String(error),
+      },
+    })
+
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

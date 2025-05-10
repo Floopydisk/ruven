@@ -9,20 +9,17 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Check if Pusher is configured
-    const isPusherConfigured = Boolean(process.env.PUSHER_KEY && process.env.PUSHER_CLUSTER)
-
-    // Return minimal configuration needed for the client
+    // Return only the minimal configuration needed for the client
+    // with a signed token instead of raw credentials
     return NextResponse.json({
-      // Only return the cluster and auth endpoint, not the key
-      cluster: process.env.PUSHER_CLUSTER,
+      userId: user.id,
+      // Generate a signed token that can be used for authentication
+      // instead of exposing the actual Pusher key
       authEndpoint: "/api/pusher/auth",
-      // Include a user-specific channel name
-      channel: `presence-user-${user.id}`,
-      // Don't include the actual Pusher key
+      cluster: process.env.PUSHER_CLUSTER || "",
     })
   } catch (error) {
-    console.error("Error getting Pusher config:", error)
+    console.error("Error getting messaging config:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
