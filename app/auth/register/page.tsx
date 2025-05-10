@@ -9,119 +9,226 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { ArrowLeft, Loader2 } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/auth-context"
+import { Loader2 } from "lucide-react"
 
 export default function RegisterPage() {
+  const [firstName, setFirstName] = useState("")
+  const [lastName, setLastName] = useState("")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [businessName, setBusinessName] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [accountType, setAccountType] = useState("student")
+  const { register, isAuthenticated } = useAuth()
+  const { toast } = useToast()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { register, isAuthenticated, isVendor } = useAuth()
-  const [isLoading, setIsLoading] = useState(false)
-  const [accountType, setAccountType] = useState(searchParams.get("type") || "customer")
-  const [error, setError] = useState<string | null>(null)
+  const redirect = searchParams?.get("redirect") || "/home"
+  const typeParam = searchParams?.get("type")
 
-  // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated) {
-      if (isVendor) {
-        router.push("/dashboard/vendor")
-      } else {
-        router.push("/dashboard")
-      }
+    // If type parameter is provided, set the account type
+    if (typeParam === "vendor") {
+      setAccountType("vendor")
     }
-  }, [isAuthenticated, isVendor, router])
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    // If already authenticated, redirect
+    if (isAuthenticated) {
+      router.push(redirect)
+    }
+  }, [isAuthenticated, router, typeParam, redirect])
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
-    setError(null)
 
-    const formData = new FormData(e.currentTarget)
-    const email = formData.get("email") as string
-    const password = formData.get("password") as string
-    const firstName = formData.get("firstName") as string
-    const lastName = formData.get("lastName") as string
-    const businessName = formData.get("businessName") as string | undefined
-    const isVendorAccount = accountType === "vendor"
+    // Validate passwords match
+    if (password !== confirmPassword) {
+      toast({
+        title: "Passwords don't match",
+        description: "Please make sure your passwords match.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Validate password length
+    if (password.length < 8) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 8 characters long.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsLoading(true)
 
     try {
-      await register({
-        email,
-        password,
+      const result = await register({
         firstName,
         lastName,
-        isVendor: isVendorAccount,
-        businessName: isVendorAccount ? businessName : undefined,
+        email,
+        password,
+        isVendor: accountType === "vendor",
+        businessName: accountType === "vendor" ? businessName : undefined,
       })
 
-      // Redirect based on account type
-      if (isVendorAccount) {
-        router.push("/dashboard/vendor")
+      if (result.success) {
+        // Registration successful - redirect will be handled in the auth context
       } else {
-        router.push("/dashboard")
+        toast({
+          title: "Registration failed",
+          description: result.error || "Please check your information and try again.",
+          variant: "destructive",
+        })
       }
-    } catch (err: any) {
-      setError(err.message || "Registration failed. Please try again.")
+    } catch (error) {
+      console.error("Registration error:", error)
+      toast({
+        title: "Registration failed",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="container flex h-screen w-screen flex-col items-center justify-center">
-      <Link href="/" className="absolute left-4 top-4 md:left-8 md:top-8 flex items-center text-sm font-medium">
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Back
-      </Link>
-
-      <Card className="w-full max-w-sm">
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
-          <CardDescription>Enter your information to create your account</CardDescription>
+          <CardDescription>Enter your information to create an account</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
-            {error && <div className="p-3 bg-destructive/15 text-destructive text-sm rounded-md">{error}</div>}
-            <div className="space-y-2">
-              <Label>Account Type</Label>
-              <RadioGroup defaultValue={accountType} onValueChange={setAccountType} className="flex space-x-2">
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="customer" id="customer" />
-                  <Label htmlFor="customer">Customer</Label>
+            <Tabs defaultValue={accountType} onValueChange={setAccountType}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="student">Student</TabsTrigger>
+                <TabsTrigger value="vendor">Vendor</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="student" className="space-y-4 pt-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName">First Name</Label>
+                    <Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Last Name</Label>
+                    <Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="vendor" id="vendor" />
-                  <Label htmlFor="vendor">Vendor</Label>
+
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="m@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
                 </div>
-              </RadioGroup>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">First name</Label>
-                <Input id="firstName" name="firstName" required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Last name</Label>
-                <Input id="lastName" name="lastName" required />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" placeholder="m.scott@dundermifflin.com" required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" name="password" type="password" required />
-            </div>
-            {accountType === "vendor" && (
-              <div className="space-y-2">
-                <Label htmlFor="businessName">Business Name</Label>
-                <Input id="businessName" name="businessName" placeholder="Your Business Name" required />
-              </div>
-            )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Confirm Password</Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                  />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="vendor" className="space-y-4 pt-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="vendorFirstName">First Name</Label>
+                    <Input
+                      id="vendorFirstName"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="vendorLastName">Last Name</Label>
+                    <Input
+                      id="vendorLastName"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="businessName">Business Name</Label>
+                  <Input
+                    id="businessName"
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="vendorEmail">Email</Label>
+                  <Input
+                    id="vendorEmail"
+                    type="email"
+                    placeholder="business@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="vendorPassword">Password</Label>
+                  <Input
+                    id="vendorPassword"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="vendorConfirmPassword">Confirm Password</Label>
+                  <Input
+                    id="vendorConfirmPassword"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
           </CardContent>
-          <CardFooter className="flex flex-col">
+          <CardFooter className="flex flex-col space-y-4">
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? (
                 <>
@@ -132,10 +239,13 @@ export default function RegisterPage() {
                 "Create account"
               )}
             </Button>
-            <div className="mt-4 text-center text-sm">
+            <div className="text-center text-sm">
               Already have an account?{" "}
-              <Link href="/auth/login" className="text-primary hover:underline">
-                Log in
+              <Link
+                href={`/auth/login${redirect !== "/home" ? `?redirect=${redirect}` : ""}`}
+                className="text-primary hover:underline"
+              >
+                Sign in
               </Link>
             </div>
           </CardFooter>

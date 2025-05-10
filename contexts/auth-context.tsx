@@ -3,13 +3,14 @@
 import type React from "react"
 
 import { createContext, useContext, useState, useEffect, useCallback } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname, useSearchParams } from "next/navigation"
 
 type User = {
   id: number
   email: string
   firstName: string
   lastName: string
+  name?: string
   profileImage?: string | null
   role?: string
   emailVerified?: boolean
@@ -22,10 +23,14 @@ type AuthContextType = {
   isLoading: boolean
   isAuthenticated: boolean
   isVendor: boolean
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
+  login: (
+    email: string,
+    password: string,
+  ) => Promise<{ success: boolean; error?: string; requiresTwoFactor?: boolean; userId?: number }>
   register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>
   logout: () => Promise<void>
   updateUserProfile: (data: UpdateProfileData) => Promise<{ success: boolean; error?: string }>
+  updatePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>
   refreshUser: () => Promise<void>
 }
 
@@ -41,6 +46,7 @@ type RegisterData = {
 type UpdateProfileData = {
   firstName?: string
   lastName?: string
+  name?: string
   phone?: string
   profileImage?: string
 }
@@ -53,6 +59,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isVendor, setIsVendor] = useState(false)
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
 
   const refreshUser = useCallback(async () => {
     try {
@@ -68,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const data = await res.json()
         if (data.user) {
           setUser(data.user)
-          setIsVendor(data.isVendor)
+          setIsVendor(data.isVendor || data.user.isVendor || false)
           setIsAuthenticated(true)
           return true
         } else {
@@ -128,8 +136,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Set user data from response
       setUser(data.user)
-      setIsVendor(data.isVendor)
+      setIsVendor(data.isVendor || data.user.isVendor || false)
       setIsAuthenticated(true)
+
+      // Check if there's a redirect URL in the query params
+      const redirect = searchParams?.get("redirect")
+      if (redirect) {
+        router.push(redirect)
+      } else {
+        router.push("/home")
+      }
 
       return { success: true }
     } catch (error) {
@@ -159,8 +175,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const responseData = await res.json()
       setUser(responseData.user)
-      setIsVendor(responseData.isVendor)
+      setIsVendor(responseData.isVendor || responseData.user.isVendor || false)
       setIsAuthenticated(true)
+
+      // Check if there's a redirect URL in the query params
+      const redirect = searchParams?.get("redirect")
+      if (redirect) {
+        router.push(redirect)
+      } else {
+        router.push("/home")
+      }
 
       return { success: true }
     } catch (error) {
@@ -228,6 +252,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const updatePassword = async (currentPassword: string, newPassword: string) => {
+    if (!user) {
+      return { success: false, error: "Not authenticated" }
+    }
+
+    try {
+      const res = await fetch(`/api/users/${user.id}/password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ currentPassword, newPassword }),
+        cache: "no-store",
+      })
+
+      if (!res.ok) {
+        const error = await res.json()
+        return { success: false, error: error.error || "Failed to update password" }
+      }
+
+      return { success: true }
+    } catch (error) {
+      console.error("Failed to update password:", error)
+      return { success: false, error: "An unexpected error occurred" }
+    }
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -239,6 +290,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         register,
         logout,
         updateUserProfile,
+        updatePassword,
         refreshUser,
       }}
     >

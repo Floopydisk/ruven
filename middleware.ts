@@ -12,29 +12,30 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // Public routes that don't require authentication
+  const publicRoutes = ["/", "/landing", "/auth/login", "/auth/register", "/auth/reset-password"]
+
+  // Routes that require authentication
+  const protectedRoutes = ["/dashboard", "/profile", "/messages", "/sell", "/browse", "/notifications"]
+
   // Redirect root to home for authenticated users
   if (pathname === "/" && isAuthenticated) {
     return NextResponse.redirect(new URL("/home", request.url))
   }
 
-  // Protect dashboard routes
-  if (pathname.startsWith("/dashboard") && !isAuthenticated) {
-    return NextResponse.redirect(new URL("/auth/login?redirect=" + encodeURIComponent(pathname), request.url))
+  // Allow access to home page without authentication
+  if (pathname === "/home") {
+    return NextResponse.next()
   }
 
-  // Protect profile routes
-  if (pathname.startsWith("/profile") && !isAuthenticated) {
-    return NextResponse.redirect(new URL("/auth/login?redirect=" + encodeURIComponent(pathname), request.url))
-  }
+  // Check if the current route requires authentication
+  const requiresAuth = protectedRoutes.some((route) => pathname.startsWith(route))
 
-  // Protect messages routes
-  if (pathname.startsWith("/messages") && !isAuthenticated) {
-    return NextResponse.redirect(new URL("/auth/login?redirect=" + encodeURIComponent(pathname), request.url))
-  }
-
-  // Protect sell route
-  if (pathname.startsWith("/sell") && !isAuthenticated) {
-    return NextResponse.redirect(new URL("/auth/login?redirect=" + encodeURIComponent(pathname), request.url))
+  // If route requires authentication and user is not authenticated, redirect to login
+  if (requiresAuth && !isAuthenticated) {
+    const redirectUrl = new URL("/auth/login", request.url)
+    redirectUrl.searchParams.set("redirect", pathname)
+    return NextResponse.redirect(redirectUrl)
   }
 
   // Prevent authenticated users from accessing login/register pages

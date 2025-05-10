@@ -19,7 +19,7 @@ import { NavBar } from "@/components/nav-bar"
 
 export default function ProfilePage() {
   const router = useRouter()
-  const { user, isLoading: authLoading, updateUserProfile } = useAuth()
+  const { user, isLoading: authLoading, updateUserProfile, updatePassword } = useAuth()
   const { toast } = useToast()
 
   const [name, setName] = useState("")
@@ -28,13 +28,19 @@ export default function ProfilePage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isVendor, setIsVendor] = useState(false)
 
+  // Password change state
+  const [currentPassword, setCurrentPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push("/auth/login")
+      router.push("/auth/login?redirect=/profile")
     }
 
     if (user) {
-      setName(user.name || "")
+      setName(user.name || `${user.firstName} ${user.lastName}`)
       setEmail(user.email || "")
       if (user.profileImage) {
         setProfileImage(user.profileImage)
@@ -69,6 +75,62 @@ export default function ProfilePage() {
     }
   }
 
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    // Validate passwords
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Passwords don't match",
+        description: "New password and confirmation must match.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (newPassword.length < 8) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 8 characters long.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsChangingPassword(true)
+
+    try {
+      const result = await updatePassword(currentPassword, newPassword)
+
+      if (result.success) {
+        toast({
+          title: "Password updated",
+          description: "Your password has been changed successfully.",
+        })
+
+        // Reset form
+        setCurrentPassword("")
+        setNewPassword("")
+        setConfirmPassword("")
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to update password. Please try again.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error changing password:", error)
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsChangingPassword(false)
+    }
+  }
+
   if (authLoading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center">
@@ -95,6 +157,7 @@ export default function ProfilePage() {
         <Tabs defaultValue="profile" className="space-y-6">
           <TabsList>
             <TabsTrigger value="profile">Profile</TabsTrigger>
+            <TabsTrigger value="password">Password</TabsTrigger>
             <TabsTrigger value="security">Security</TabsTrigger>
             {isVendor && <TabsTrigger value="vendor">Vendor Account</TabsTrigger>}
           </TabsList>
@@ -136,35 +199,55 @@ export default function ProfilePage() {
                 </CardFooter>
               </form>
             </Card>
+          </TabsContent>
 
+          <TabsContent value="password" className="space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle>Account Preferences</CardTitle>
-                <CardDescription>Manage your account settings and notifications</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium">Email Notifications</h3>
-                    <p className="text-sm text-muted-foreground">Receive email notifications for account activity</p>
+              <form onSubmit={handlePasswordChange}>
+                <CardHeader>
+                  <CardTitle>Change Password</CardTitle>
+                  <CardDescription>Update your account password</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="currentPassword">Current Password</Label>
+                    <Input
+                      id="currentPassword"
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      required
+                    />
                   </div>
-                  <Button variant="outline" size="sm">
-                    <Settings className="h-4 w-4 mr-2" />
-                    Configure
-                  </Button>
-                </div>
 
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium">Privacy Settings</h3>
-                    <p className="text-sm text-muted-foreground">Manage your privacy preferences</p>
+                  <div className="space-y-2">
+                    <Label htmlFor="newPassword">New Password</Label>
+                    <Input
+                      id="newPassword"
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      required
+                    />
                   </div>
-                  <Button variant="outline" size="sm">
-                    <Settings className="h-4 w-4 mr-2" />
-                    Configure
+
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                </CardContent>
+                <CardFooter>
+                  <Button type="submit" disabled={isChangingPassword}>
+                    {isChangingPassword ? "Updating..." : "Change Password"}
                   </Button>
-                </div>
-              </CardContent>
+                </CardFooter>
+              </form>
             </Card>
           </TabsContent>
 

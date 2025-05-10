@@ -127,10 +127,12 @@ export async function POST(request: Request) {
         email: user.email,
         firstName: user.first_name,
         lastName: user.last_name,
+        name: `${user.first_name} ${user.last_name}`,
         profileImage: user.profile_image,
         role: user.role,
         emailVerified: user.email_verified,
         twoFactorEnabled: user.two_factor_enabled,
+        isVendor: isVendor,
       },
       isVendor,
     })
