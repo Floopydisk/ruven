@@ -1,101 +1,98 @@
 "use client"
 
-import Link from "next/link"
+import { useState, useEffect } from "react"
 import { usePathname, useRouter } from "next/navigation"
-import { Home, Search, PlusCircle, MessageSquare, User } from "lucide-react"
+import { Home, Search, MessageSquare, User } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
-import { NotificationBadge } from "@/components/notification-badge"
+import { NotificationBadge } from "./notification-badge"
 
 export function BottomNavigation() {
   const pathname = usePathname()
+  const { user, loading } = useAuth()
   const router = useRouter()
-  const { user, isAuthenticated } = useAuth()
+  const [unreadCount, setUnreadCount] = useState(0)
 
-  // Don't show on login/register pages
-  if (pathname?.startsWith("/auth/") || pathname === "/auth" || pathname === "/landing" || pathname === "/") {
+  // Fetch unread message count
+  useEffect(() => {
+    if (user) {
+      const fetchUnreadCount = async () => {
+        try {
+          const res = await fetch("/api/messages/unread-count")
+          if (res.ok) {
+            const data = await res.json()
+            setUnreadCount(data.count)
+          }
+        } catch (error) {
+          console.error("Error fetching unread count:", error)
+        }
+      }
+
+      fetchUnreadCount()
+
+      // Set up interval to check periodically
+      const interval = setInterval(fetchUnreadCount, 30000) // every 30 seconds
+
+      return () => clearInterval(interval)
+    }
+  }, [user])
+
+  // Don't show on landing page
+  if (pathname === "/landing") {
     return null
   }
 
+  // Handle navigation for protected routes
   const handleNavigation = (path: string) => {
-    if (!isAuthenticated) {
-      router.push(`/auth/login?redirect=${path}`)
+    if (!user && !loading) {
+      // Save the intended destination
+      router.push(`/auth/login?callbackUrl=${path}`)
     } else {
       router.push(path)
     }
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 border-t border-border bg-background shadow-lg z-50 pb-safe">
+    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 pb-safe z-50">
       <div className="flex justify-around items-center h-16">
-        <Link
-          href="/home"
-          className="flex flex-col items-center justify-center py-2 px-4 w-1/5 h-full transition-colors"
-        >
-          <Home
-            className={`h-6 w-6 ${pathname === "/home" || pathname === "/" ? "text-primary" : "text-muted-foreground"}`}
-          />
-          <span
-            className={`text-xs mt-1 ${
-              pathname === "/home" || pathname === "/" ? "text-primary" : "text-muted-foreground"
-            }`}
-          >
-            Home
-          </span>
-        </Link>
-
         <button
-          onClick={() => handleNavigation("/browse")}
-          className="flex flex-col items-center justify-center py-2 px-4 w-1/5 h-full transition-colors border-none bg-transparent"
+          onClick={() => handleNavigation("/home")}
+          className={`flex flex-col items-center justify-center w-full h-full ${
+            pathname === "/home" ? "text-blue-600" : "text-gray-500"
+          }`}
         >
-          <Search className={`h-6 w-6 ${pathname === "/browse" ? "text-primary" : "text-muted-foreground"}`} />
-          <span className={`text-xs mt-1 ${pathname === "/browse" ? "text-primary" : "text-muted-foreground"}`}>
-            Browse
-          </span>
+          <Home size={24} />
+          <span className="text-xs mt-1">Home</span>
         </button>
 
         <button
-          onClick={() =>
-            handleNavigation(isAuthenticated && user?.isVendor ? "/dashboard/vendor/products/new" : "/sell")
-          }
-          className="flex flex-col items-center justify-center py-2 px-4 w-1/5 h-full transition-colors border-none bg-transparent"
+          onClick={() => handleNavigation("/browse")}
+          className={`flex flex-col items-center justify-center w-full h-full ${
+            pathname === "/browse" || pathname.startsWith("/vendors") ? "text-blue-600" : "text-gray-500"
+          }`}
         >
-          <div className="bg-primary rounded-full p-2 -mt-8 shadow-lg">
-            <PlusCircle className="h-6 w-6 text-primary-foreground" />
-          </div>
-          <span className="text-xs mt-1 text-muted-foreground">Add</span>
+          <Search size={24} />
+          <span className="text-xs mt-1">Browse</span>
         </button>
 
         <button
           onClick={() => handleNavigation("/messages")}
-          className="flex flex-col items-center justify-center py-2 px-4 w-1/5 h-full transition-colors relative border-none bg-transparent"
+          className={`flex flex-col items-center justify-center w-full h-full relative ${
+            pathname === "/messages" || pathname.startsWith("/messages/") ? "text-blue-600" : "text-gray-500"
+          }`}
         >
-          <MessageSquare
-            className={`h-6 w-6 ${pathname?.startsWith("/messages") ? "text-primary" : "text-muted-foreground"}`}
-          />
-          {isAuthenticated && <NotificationBadge className="absolute top-1 right-3" />}
-          <span
-            className={`text-xs mt-1 ${pathname?.startsWith("/messages") ? "text-primary" : "text-muted-foreground"}`}
-          >
-            Messages
-          </span>
+          <MessageSquare size={24} />
+          {unreadCount > 0 && <NotificationBadge count={unreadCount} />}
+          <span className="text-xs mt-1">Messages</span>
         </button>
 
         <button
           onClick={() => handleNavigation("/profile")}
-          className="flex flex-col items-center justify-center py-2 px-4 w-1/5 h-full transition-colors border-none bg-transparent"
+          className={`flex flex-col items-center justify-center w-full h-full ${
+            pathname === "/profile" || pathname.startsWith("/profile/") ? "text-blue-600" : "text-gray-500"
+          }`}
         >
-          <User
-            className={`h-6 w-6 ${
-              pathname === "/profile" || pathname?.startsWith("/profile/") ? "text-primary" : "text-muted-foreground"
-            }`}
-          />
-          <span
-            className={`text-xs mt-1 ${
-              pathname === "/profile" || pathname?.startsWith("/profile/") ? "text-primary" : "text-muted-foreground"
-            }`}
-          >
-            Profile
-          </span>
+          <User size={24} />
+          <span className="text-xs mt-1">Profile</span>
         </button>
       </div>
     </div>

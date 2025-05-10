@@ -21,9 +21,14 @@ export async function createStackUser(email: string, password: string) {
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10)
 
-    // In a real implementation, we would create the user in Stack Auth here
-    // For now, we'll just return success
-    return { success: true, userId: crypto.randomUUID() }
+    // Create user in our database
+    const result = await sql`
+      INSERT INTO users (email, password_hash, created_at)
+      VALUES (${email}, ${hashedPassword}, NOW())
+      RETURNING id
+    `
+
+    return { success: true, userId: result[0].id }
   } catch (error) {
     console.error("User creation error:", error)
     return { success: false, error: "Failed to create user" }
@@ -43,13 +48,7 @@ export async function loginWithStack(email: string, password: string) {
 
     const user = users[0]
 
-    // If using Stack Auth, the password would be managed there
-    // For now, we'll check if the password_hash is 'stack_managed' and assume it's correct
-    if (user.password_hash === "stack_managed") {
-      return { success: true, userId: user.id }
-    }
-
-    // Otherwise, verify the password
+    // Verify the password
     const isValid = await bcrypt.compare(password, user.password_hash)
 
     if (!isValid) {
@@ -79,7 +78,7 @@ export async function getStackUserInfo(userId: string) {
   try {
     // Get user from database
     const users = await sql`
-      SELECT id, email, name FROM users WHERE id = ${userId}
+      SELECT id, email, first_name, last_name, profile_image FROM users WHERE id = ${userId}
     `
 
     if (users.length === 0) {
