@@ -1,4 +1,5 @@
 import { neon } from "@neondatabase/serverless"
+import { UAParser } from "ua-parser-js"
 
 type SecurityEventType =
   | "login"
@@ -17,161 +18,153 @@ type SecurityEventType =
   | "session_created"
   | "session_expired"
   | "session_revoked"
-  | "admin_action"
 
-interface SecurityLogData {
+interface SecurityEventDetails {
   userId?: number
-  eventType: SecurityEventType
+  email?: string
   ipAddress?: string
   userAgent?: string
+  sessionId?: string
   details?: Record<string, any>
 }
 
 /**
- * Log a security event to the database
+ * Logs a security event to the database
  */
-async function logSecurityEvent({ userId, eventType, ipAddress, userAgent, details }: SecurityLogData): Promise<void> {
+export async function logSecurityEvent(eventType: SecurityEventType, details?: SecurityEventDetails) {
   try {
+    // Handle the case where details might be undefined
+    if (!details) {
+      details = {}
+    }
+
+    // Create a new SQL client for each request to avoid connection issues
     const sql = neon(process.env.DATABASE_URL!)
 
-    await sql`
-      INSERT INTO security_logs (
-        user_id, 
-        event_type, 
-        ip_address, 
-        user_agent, 
-        details
-      ) VALUES (
-        ${userId || null}, 
-        ${eventType}, 
-        ${ipAddress || null}, 
-        ${userAgent || null}, 
-        ${details ? JSON.stringify(details) : null}
-      )
-    `
+    // Extract details with safe defaults
+    const userId = details.userId || null
+    const ipAddress = details.ipAddress || null
+    const userAgent = details.userAgent || null
+    const eventDetails = details.details || null
 
-    // Send security notification for certain events
+    // Parse user agent
+    const deviceInfo = userAgent ? parseUserAgent(userAgent) : null
+
+    // Log to database with better error handling
+    try {
+      await sql`
+        INSERT INTO security_logs (
+          event_type, 
+          user_id, 
+          ip_address, 
+          user_agent, 
+          details
+        ) VALUES (
+          ${eventType}, 
+          ${userId}, 
+          ${ipAddress}, 
+          ${userAgent}, 
+          ${eventDetails ? JSON.stringify(eventDetails) : null}
+        )
+      `
+    } catch (dbError) {
+      // Log the error but don't throw it to prevent breaking the login flow
+      console.error("Database error when logging security event:", dbError)
+      // Continue execution - don't block the main flow for logging failures
+    }
+
+    // Send notification for important security events
     if (
       eventType === "login_failed" ||
       eventType === "password_changed" ||
+      eventType === "two_factor_enabled" ||
       eventType === "two_factor_disabled" ||
       eventType === "account_locked" ||
       eventType === "session_revoked"
     ) {
-      await sendSecurityNotification(userId, eventType, ipAddress, details)
+      try {
+        await sendSecurityNotification(eventType, details, deviceInfo)
+      } catch (notificationError) {
+        console.error("Error sending security notification:", notificationError)
+        // Continue execution - don't block the main flow for notification failures
+      }
     }
+
+    return true
   } catch (error) {
+    // Log the error but don't throw it to prevent breaking the login flow
     console.error("Error logging security event:", error)
+    return false
   }
 }
 
 /**
- * Send a security notification to the user
+ * Sends a security notification for important events
  */
-async function sendSecurityNotification(
-  userId: number | undefined,
-  eventType: SecurityEventType,
-  ipAddress?: string,
-  details?: Record<string, any>,
-): Promise<void> {
-  if (!userId) return
-
-  try {
-    // Get user email
-    const sql = neon(process.env.DATABASE_URL!)
-    const userResult = await sql`
-      SELECT email FROM users WHERE id = ${userId}
-    `
-
-    if (userResult.length === 0) return
-
-    const userEmail = userResult[0].email
-    const activityDescription = getActivityDescription(eventType)
-
-    // In a real app, you would send an email here
-    console.log(
-      `Security notification for ${userEmail}: ${activityDescription} from ${ipAddress || "unknown location"}`,
-    )
-
-    // For now, just log to the console
-  } catch (error) {
-    console.error("Error sending security notification:", error)
-  }
+async function sendSecurityNotification(eventType: SecurityEventType, details: SecurityEventDetails, deviceInfo: any) {
+  // In a real app, this would send an email or push notification
+  // For now, we'll just log to console
+  console.log(`SECURITY NOTIFICATION: ${eventType}`)
+  console.log(`User: ${details.email || details.userId || "Unknown"}`)
+  console.log(`IP Address: ${details.ipAddress || "Unknown"}`)
+  console.log(`Device: ${deviceInfo?.device?.vendor || "Unknown"} ${deviceInfo?.device?.model || "Unknown"}`)
+  console.log(`Browser: ${deviceInfo?.browser?.name || "Unknown"} ${deviceInfo?.browser?.version || "Unknown"}`)
+  console.log(`OS: ${deviceInfo?.os?.name || "Unknown"} ${deviceInfo?.os?.version || "Unknown"}`)
+  console.log(`Activity: ${getActivityDescription(eventType)}`)
+  console.log(`Time: ${new Date().toISOString()}`)
 }
 
 /**
- * Get a human-readable description of a security event
+ * Gets a human-readable description of the security event
  */
 function getActivityDescription(eventType: SecurityEventType): string {
   const descriptions: Record<SecurityEventType, string> = {
     login: "Successful login to your account",
     login_failed: "Failed login attempt to your account",
     logout: "Logout from your account",
-    password_reset: "Password reset requested for your account",
-    password_changed: "Password changed for your account",
-    email_changed: "Email address changed for your account",
-    profile_updated: "Profile information updated for your account",
-    two_factor_enabled: "Two-factor authentication enabled for your account",
-    two_factor_disabled: "Two-factor authentication disabled for your account",
+    password_reset: "Password reset requested",
+    password_changed: "Password was changed",
+    email_changed: "Email address was changed",
+    profile_updated: "Profile information was updated",
+    two_factor_enabled: "Two-factor authentication was enabled",
+    two_factor_disabled: "Two-factor authentication was disabled",
     two_factor_challenge: "Two-factor authentication challenge completed",
-    two_factor_challenge_failed: "Failed two-factor authentication challenge",
-    account_locked: "Your account has been locked for security reasons",
-    account_unlocked: "Your account has been unlocked",
-    session_created: "New session created for your account",
-    session_expired: "Session expired for your account",
-    session_revoked: "Session manually revoked for your account",
-    admin_action: "Administrative action performed on your account",
+    two_factor_challenge_failed: "Failed two-factor authentication attempt",
+    account_locked: "Account was locked due to suspicious activity",
+    account_unlocked: "Account was unlocked",
+    session_created: "New session created",
+    session_expired: "Session expired",
+    session_revoked: "Session was manually revoked",
   }
 
-  return descriptions[eventType] || "Security activity on your account"
+  return descriptions[eventType] || "Unknown security activity"
 }
 
 /**
- * Parse user agent string to get browser and OS information
+ * Parses user agent string to get device information
  */
-function parseUserAgent(userAgent?: string): { browser: string; os: string } {
-  if (!userAgent) {
-    return { browser: "Unknown", os: "Unknown" }
+function parseUserAgent(userAgent: string) {
+  try {
+    const parser = new UAParser(userAgent)
+    return {
+      browser: parser.getBrowser(),
+      device: parser.getDevice(),
+      os: parser.getOS(),
+    }
+  } catch (error) {
+    console.error("Error parsing user agent:", error)
+    return {
+      browser: { name: "Unknown", version: "Unknown" },
+      device: { vendor: "Unknown", model: "Unknown" },
+      os: { name: "Unknown", version: "Unknown" },
+    }
   }
-
-  // Simple parsing logic - in a real app, you would use a more robust solution
-  let browser = "Unknown"
-  let os = "Unknown"
-
-  // Detect browser
-  if (userAgent.includes("Firefox")) {
-    browser = "Firefox"
-  } else if (userAgent.includes("Chrome")) {
-    browser = "Chrome"
-  } else if (userAgent.includes("Safari")) {
-    browser = "Safari"
-  } else if (userAgent.includes("Edge")) {
-    browser = "Edge"
-  } else if (userAgent.includes("MSIE") || userAgent.includes("Trident/")) {
-    browser = "Internet Explorer"
-  }
-
-  // Detect OS
-  if (userAgent.includes("Windows")) {
-    os = "Windows"
-  } else if (userAgent.includes("Mac OS")) {
-    os = "macOS"
-  } else if (userAgent.includes("Linux")) {
-    os = "Linux"
-  } else if (userAgent.includes("Android")) {
-    os = "Android"
-  } else if (userAgent.includes("iPhone") || userAgent.includes("iPad")) {
-    os = "iOS"
-  }
-
-  return { browser, os }
 }
 
-// Export the security logger
+// Export the security logger as an object with a log method
 export const securityLogger = {
   log: logSecurityEvent,
 }
 
-export { logSecurityEvent, sendSecurityNotification, getActivityDescription, parseUserAgent }
-
-export type { SecurityEventType, SecurityLogData }
+// Also export individual functions for direct use
+export { sendSecurityNotification, getActivityDescription, parseUserAgent }

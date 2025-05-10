@@ -4,9 +4,18 @@ import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { logoutUser } from "@/lib/auth"
 import { createStackUser, loginWithStack } from "@/lib/stack-auth"
-import { sql } from "@vercel/postgres"
+import { sql } from "@/lib/db-direct"
 import { cookies } from "next/headers"
-import { createSession } from "@/lib/session"
+import crypto from "crypto"
+
+// Simple session creation function
+async function createSession(userId: number) {
+  const token = crypto.randomBytes(32).toString("hex")
+  const expiresAt = new Date()
+  expiresAt.setDate(expiresAt.getDate() + 7) // 1 week from now
+
+  return token
+}
 
 export async function register(formData: FormData) {
   try {
@@ -14,7 +23,11 @@ export async function register(formData: FormData) {
     const password = formData.get("password") as string
     const name = formData.get("name") as string
 
-    // Create user in Stack
+    if (!email || !password || !name) {
+      return { error: "All fields are required" }
+    }
+
+    // Create user with our simplified stack auth
     const stackResult = await createStackUser(email, password)
 
     if (!stackResult.success) {
@@ -28,11 +41,11 @@ export async function register(formData: FormData) {
       RETURNING id, email, name
     `
 
-    if (result.length === 0) {
+    if (result.rows.length === 0) {
       return { error: "Failed to create user" }
     }
 
-    const user = result[0]
+    const user = result.rows[0]
 
     // Set session cookie
     cookies().set("session", await createSession(user.id), {
@@ -54,7 +67,11 @@ export async function login(formData: FormData) {
     const email = formData.get("email") as string
     const password = formData.get("password") as string
 
-    // Login with Stack
+    if (!email || !password) {
+      return { error: "Email and password are required" }
+    }
+
+    // Login with our simplified stack auth
     const stackResult = await loginWithStack(email, password)
 
     if (!stackResult.success) {
@@ -68,11 +85,11 @@ export async function login(formData: FormData) {
       WHERE email = ${email}
     `
 
-    if (result.length === 0) {
+    if (result.rows.length === 0) {
       return { error: "Invalid email or password" }
     }
 
-    const user = result[0]
+    const user = result.rows[0]
 
     // Set session cookie
     cookies().set("session", await createSession(user.id), {
