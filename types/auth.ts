@@ -1,21 +1,24 @@
-export type UserRole = "user" | "admin" | "vendor"
-
 export interface User {
   id: number
   email: string
-  firstName: string | null
-  lastName: string | null
+  firstName: string
+  lastName: string
   profileImage: string | null
-  role?: UserRole
-  emailVerified?: boolean
-  twoFactorEnabled?: boolean
-  isVendor?: boolean // Add this property
+  role?: string
+  isVendor?: boolean
 }
 
-export interface AuthState {
-  user: User | null
-  isLoading: boolean
-  isVendor: boolean
+export interface Vendor {
+  id: number
+  userId: number
+  businessName: string
+  description: string | null
+  logoImage: string | null
+  bannerImage: string | null
+  location: string | null
+  businessHours: string | null
+  phone: string | null
+  website: string | null
 }
 
 export interface Session {
@@ -26,15 +29,14 @@ export interface Session {
   userAgent: string
   ipAddress: string
   lastActive: string
-  createdAt: string
 }
 
 export interface SecurityLog {
   id: number
-  userId?: number
-  eventType: string
+  userId: number | null
+  event: string
   ipAddress: string
   userAgent: string
-  details?: any
+  details: string | null
   createdAt: string
 }
