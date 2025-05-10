@@ -45,6 +45,18 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Custom dashboard colors
+        dashboard: {
+          bg: "#0f172a",
+          card: "#1e293b",
+          accent: "#0ea5e9",
+          text: "#e2e8f0",
+          muted: "#64748b",
+          success: "#10b981",
+          warning: "#f59e0b",
+          danger: "#ef4444",
+          info: "#3b82f6",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -60,20 +72,10 @@ module.exports = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: 0 },
         },
-        "pulse-glow": {
-          "0%, 100%": { opacity: 1 },
-          "50%": { opacity: 0.7 },
-        },
-        "spin-slow": {
-          "0%": { transform: "rotate(0deg)" },
-          "100%": { transform: "rotate(360deg)" },
-        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        "pulse-glow": "pulse-glow 3s ease-in-out infinite",
-        "spin-slow": "spin-slow 20s linear infinite",
       },
     },
   },

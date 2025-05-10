@@ -2,29 +2,50 @@
 
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
-import { registerUser, loginUser, logoutUser } from "@/lib/auth"
+import { logoutUser } from "@/lib/auth"
+import { createStackUser, loginWithStack } from "@/lib/stack-auth"
+import { sql } from "@vercel/postgres"
+import { cookies } from "next/headers"
+import { createSession } from "@/lib/session"
 
 export async function register(formData: FormData) {
   try {
     const email = formData.get("email") as string
     const password = formData.get("password") as string
-    const firstName = formData.get("firstName") as string
-    const lastName = formData.get("lastName") as string
-    const accountType = formData.get("accountType") as string
-    const businessName = formData.get("businessName") as string | undefined
+    const name = formData.get("name") as string
 
-    const isVendor = accountType === "vendor"
+    // Create user in Stack
+    const stackResult = await createStackUser(email, password)
 
-    await registerUser(email, password, firstName, lastName, isVendor, businessName)
-
-    // Redirect based on account type
-    if (isVendor) {
-      redirect("/dashboard/vendor")
-    } else {
-      redirect("/dashboard")
+    if (!stackResult.success) {
+      return { error: stackResult.error || "Failed to create user" }
     }
-  } catch (error: any) {
-    return { error: error.message || "Registration failed" }
+
+    // Create user in our database
+    const result = await sql`
+      INSERT INTO users (email, name, password_hash)
+      VALUES (${email}, ${name}, 'stack_managed')
+      RETURNING id, email, name
+    `
+
+    if (result.length === 0) {
+      return { error: "Failed to create user" }
+    }
+
+    const user = result[0]
+
+    // Set session cookie
+    cookies().set("session", await createSession(user.id), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24 * 7, // 1 week
+      path: "/",
+    })
+
+    return { success: true }
+  } catch (error) {
+    console.error("Registration error:", error)
+    return { error: "An unexpected error occurred" }
   }
 }
 
@@ -33,19 +54,38 @@ export async function login(formData: FormData) {
     const email = formData.get("email") as string
     const password = formData.get("password") as string
 
-    const user = await loginUser(email, password)
+    // Login with Stack
+    const stackResult = await loginWithStack(email, password)
 
-    // Check if user is a vendor
-    const response = await fetch(`/api/users/${user.id}/vendor`)
-    const data = await response.json()
-
-    if (data.vendor) {
-      redirect("/dashboard/vendor")
-    } else {
-      redirect("/dashboard")
+    if (!stackResult.success) {
+      return { error: "Invalid email or password" }
     }
-  } catch (error: any) {
-    return { error: error.message || "Login failed" }
+
+    // Get user from our database
+    const result = await sql`
+      SELECT id, email, name, role
+      FROM users
+      WHERE email = ${email}
+    `
+
+    if (result.length === 0) {
+      return { error: "Invalid email or password" }
+    }
+
+    const user = result[0]
+
+    // Set session cookie
+    cookies().set("session", await createSession(user.id), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24 * 7, // 1 week
+      path: "/",
+    })
+
+    return { success: true }
+  } catch (error) {
+    console.error("Login error:", error)
+    return { error: "An unexpected error occurred" }
   }
 }
 

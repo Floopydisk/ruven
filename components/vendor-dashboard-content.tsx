@@ -1,188 +1,272 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import Image from "next/image"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ShoppingBag, MessageSquare, Settings, BarChart3, Users, Package, Star } from "lucide-react"
-import type { User, Vendor } from "@/lib/auth"
+import { Package, MessageSquare, Store, BarChart3, ArrowRight, Loader2 } from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
 
-interface VendorDashboardContentProps {
-  user: User
-  vendor: Vendor
+type VendorStats = {
+  totalProducts: number
+  totalMessages: number
+  unreadMessages: number
+  profileViews: number
 }
 
-export function VendorDashboardContent({ user, vendor }: VendorDashboardContentProps) {
-  const [activeTab, setActiveTab] = useState("overview")
+export function VendorDashboardContent() {
+  const { user } = useAuth()
+  const [stats, setStats] = useState<VendorStats>({
+    totalProducts: 0,
+    totalMessages: 0,
+    unreadMessages: 0,
+    profileViews: 0,
+  })
+  const [isLoading, setIsLoading] = useState(true)
+  const [vendorId, setVendorId] = useState<number | null>(null)
+
+  useEffect(() => {
+    async function fetchVendorData() {
+      if (!user) return
+
+      try {
+        // First get vendor ID
+        const vendorResponse = await fetch(`/api/vendors/check?userId=${user.id}`)
+        if (!vendorResponse.ok) {
+          throw new Error("Failed to verify vendor status")
+        }
+
+        const vendorData = await vendorResponse.json()
+        if (!vendorData.isVendor || !vendorData.vendor) {
+          setIsLoading(false)
+          return
+        }
+
+        setVendorId(vendorData.vendor.id)
+
+        // Simulate fetching stats
+        // In a real app, you would fetch this from an API
+        setTimeout(() => {
+          setStats({
+            totalProducts: 12,
+            totalMessages: 24,
+            unreadMessages: 3,
+            profileViews: 156,
+          })
+          setIsLoading(false)
+        }, 1000)
+      } catch (error) {
+        console.error("Error fetching vendor data:", error)
+        setIsLoading(false)
+      }
+    }
+
+    fetchVendorData()
+  }, [user])
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-[50vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   return (
-    <div className="flex flex-1">
-      {/* Sidebar */}
-      <div className="hidden md:flex w-64 flex-col border-r bg-muted/40">
-        <div className="flex h-16 items-center border-b px-6">
-          <Link href="/" className="flex items-center">
-            <ShoppingBag className="h-6 w-6 mr-2" />
-            <span className="font-bold text-xl">UniVendor</span>
-          </Link>
-        </div>
-        <div className="flex-1 overflow-auto py-2">
-          <nav className="grid gap-1 px-2">
-            <Link
-              href="/dashboard/vendor"
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all ${
-                activeTab === "overview" ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
-              }`}
-              onClick={() => setActiveTab("overview")}
-            >
-              <BarChart3 className="h-4 w-4" />
-              Overview
-            </Link>
-            <Link
-              href="/dashboard/vendor/products"
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all ${
-                activeTab === "products" ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
-              }`}
-              onClick={() => setActiveTab("products")}
-            >
-              <Package className="h-4 w-4" />
-              Products & Services
-            </Link>
-            <Link
-              href="/dashboard/vendor/messages"
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all ${
-                activeTab === "messages" ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
-              }`}
-              onClick={() => setActiveTab("messages")}
-            >
-              <MessageSquare className="h-4 w-4" />
-              Messages
-            </Link>
-            <Link
-              href="/dashboard/vendor/profile"
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all ${
-                activeTab === "profile" ? "bg-accent text-accent-foreground" : "hover:bg-accent/50"
-              }`}
-              onClick={() => setActiveTab("profile")}
-            >
-              <Settings className="h-4 w-4" />
-              Profile Settings
-            </Link>
-          </nav>
-        </div>
-        <div className="mt-auto p-4">
-          <div className="flex items-center gap-3 rounded-lg border px-3 py-2">
-            <div className="relative h-10 w-10 overflow-hidden rounded-full">
-              <Image
-                src={user.profileImage || "/placeholder.svg?height=40&width=40"}
-                alt="Vendor logo"
-                fill
-                className="object-cover"
-              />
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <div className="font-medium">{vendor.businessName}</div>
-              <div className="text-xs text-muted-foreground truncate">{user.email}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Main content */}
-      <div className="flex-1">
-        <header className="flex h-16 items-center border-b px-6 md:hidden">
-          <div className="mr-2">
-            <ShoppingBag className="h-6 w-6" />
-          </div>
-          <h1 className="text-lg font-semibold">Vendor Dashboard</h1>
-        </header>
-
-        <main className="p-6">
-          <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-6">
             <div className="flex items-center justify-between">
-              <TabsList className="md:hidden">
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="products">Products</TabsTrigger>
-                <TabsTrigger value="messages">Messages</TabsTrigger>
-                <TabsTrigger value="profile">Profile</TabsTrigger>
-              </TabsList>
-              <h1 className="text-2xl font-bold hidden md:block">
-                {activeTab === "overview" && "Dashboard Overview"}
-                {activeTab === "products" && "Products & Services"}
-                {activeTab === "messages" && "Messages"}
-                {activeTab === "profile" && "Profile Settings"}
-              </h1>
-              <div className="flex gap-2">
-                <Link href="/dashboard/vendor/products">
-                  <Button variant="outline">
-                    <Package className="mr-2 h-4 w-4" />
-                    Manage Products
-                  </Button>
-                </Link>
-                <Link href="/dashboard/vendor/profile">
-                  <Button variant="outline">
-                    <Settings className="mr-2 h-4 w-4" />
-                    Edit Profile
-                  </Button>
-                </Link>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Products</p>
+                <h3 className="text-2xl font-bold mt-1">{stats.totalProducts}</h3>
+              </div>
+              <div className="bg-primary/10 p-3 rounded-full">
+                <Package className="h-5 w-5 text-primary" />
               </div>
             </div>
+          </CardContent>
+        </Card>
 
-            <TabsContent value="overview" className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">Total Views</CardTitle>
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">1,234</div>
-                    <p className="text-xs text-muted-foreground">+12% from last month</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">Messages</CardTitle>
-                    <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">42</div>
-                    <p className="text-xs text-muted-foreground">+8% from last month</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">Products</CardTitle>
-                    <Package className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">12</div>
-                    <p className="text-xs text-muted-foreground">+2 added this month</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium">Rating</CardTitle>
-                    <Star className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">4.8</div>
-                    <div className="flex">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`h-3 w-3 ${i < 5 ? "fill-primary text-primary" : "fill-muted text-muted"}`}
-                        />
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Messages</p>
+                <h3 className="text-2xl font-bold mt-1">{stats.totalMessages}</h3>
               </div>
-            </TabsContent>
-          </Tabs>
-        </main>
+              <div className="bg-primary/10 p-3 rounded-full">
+                <MessageSquare className="h-5 w-5 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Unread Messages</p>
+                <h3 className="text-2xl font-bold mt-1">{stats.unreadMessages}</h3>
+              </div>
+              <div className="bg-primary/10 p-3 rounded-full">
+                <MessageSquare className="h-5 w-5 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Profile Views</p>
+                <h3 className="text-2xl font-bold mt-1">{stats.profileViews}</h3>
+              </div>
+              <div className="bg-primary/10 p-3 rounded-full">
+                <Store className="h-5 w-5 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      <Tabs defaultValue="products">
+        <TabsList className="mb-4">
+          <TabsTrigger value="products">Products</TabsTrigger>
+          <TabsTrigger value="messages">Messages</TabsTrigger>
+          <TabsTrigger value="profile">Profile</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="products">
+          <Card>
+            <CardHeader>
+              <CardTitle>Manage Products</CardTitle>
+              <CardDescription>Add, edit, or remove products and services</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="border rounded-lg p-4">
+                  <h3 className="font-medium mb-1">Add New Products</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Create listings for your products or services with details and pricing
+                  </p>
+                  <Link href="/dashboard/vendor/products">
+                    <Button variant="outline" className="w-full">
+                      Add Products
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
+                </div>
+
+                <div className="border rounded-lg p-4">
+                  <h3 className="font-medium mb-1">Manage Inventory</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Update stock levels, prices, and product information
+                  </p>
+                  <Link href="/dashboard/vendor/products">
+                    <Button variant="outline" className="w-full">
+                      View Products
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Link href="/dashboard/vendor/products" className="w-full">
+                <Button className="w-full">Go to Product Management</Button>
+              </Link>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="messages">
+          <Card>
+            <CardHeader>
+              <CardTitle>Customer Messages</CardTitle>
+              <CardDescription>View and respond to customer inquiries</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="border rounded-lg p-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-medium">Unread Messages</h3>
+                      <p className="text-sm text-muted-foreground">
+                        You have {stats.unreadMessages} unread messages from customers
+                      </p>
+                    </div>
+                    <div className="bg-primary/10 p-2 rounded-full">
+                      <MessageSquare className="h-4 w-4 text-primary" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border rounded-lg p-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-medium">Response Time</h3>
+                      <p className="text-sm text-muted-foreground">Your average response time is 2 hours</p>
+                    </div>
+                    <div className="bg-primary/10 p-2 rounded-full">
+                      <BarChart3 className="h-4 w-4 text-primary" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Link href="/dashboard/vendor/messages" className="w-full">
+                <Button className="w-full">Go to Messages</Button>
+              </Link>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="profile">
+          <Card>
+            <CardHeader>
+              <CardTitle>Business Profile</CardTitle>
+              <CardDescription>Update your business information and settings</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="border rounded-lg p-4">
+                  <h3 className="font-medium mb-1">Profile Information</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Update your business details, logo, and contact information
+                  </p>
+                  <Link href="/dashboard/vendor/profile">
+                    <Button variant="outline" className="w-full">
+                      Edit Profile
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
+                </div>
+
+                <div className="border rounded-lg p-4">
+                  <h3 className="font-medium mb-1">Business Hours</h3>
+                  <p className="text-sm text-muted-foreground mb-4">Set your operating hours and availability</p>
+                  <Link href="/dashboard/vendor/profile">
+                    <Button variant="outline" className="w-full">
+                      Update Hours
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Link href="/dashboard/vendor/profile" className="w-full">
+                <Button className="w-full">Manage Profile</Button>
+              </Link>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

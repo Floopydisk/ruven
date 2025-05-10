@@ -6,14 +6,25 @@ export async function POST(request: Request) {
   try {
     const { email, password, firstName, lastName, isVendor, businessName } = await request.json()
 
+    // Validate required fields
+    if (!email || !password || !firstName || !lastName) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+    }
+
+    // Ensure password is a string
+    if (typeof password !== "string") {
+      return NextResponse.json({ error: "Password must be a string" }, { status: 400 })
+    }
+
     // Check if user already exists using tagged template syntax
     const existingUser = await sql`SELECT * FROM users WHERE email = ${email}`
     if (existingUser.length > 0) {
       return NextResponse.json({ error: "User with this email already exists" }, { status: 400 })
     }
 
-    // Hash password
-    const passwordHash = await bcrypt.hash(password, 10)
+    // Hash password with explicit salt rounds
+    const saltRounds = 10
+    const passwordHash = await bcrypt.hash(password, saltRounds)
 
     // Create user using tagged template syntax
     const result = await sql`

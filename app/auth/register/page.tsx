@@ -46,14 +46,17 @@ export default function RegisterPage() {
     const isVendorAccount = accountType === "vendor"
 
     try {
-      const result = await register(email, password, firstName, lastName, isVendorAccount, businessName)
-
-      if (!result.success) {
-        throw new Error(result.error || "Registration failed")
-      }
+      await register({
+        email,
+        password,
+        firstName,
+        lastName,
+        isVendor: isVendorAccount,
+        businessName: isVendorAccount ? businessName : undefined,
+      })
 
       // Redirect based on account type
-      if (result.isVendor) {
+      if (isVendorAccount) {
         router.push("/dashboard/vendor")
       } else {
         router.push("/dashboard")

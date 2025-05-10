@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { io, type Socket } from "socket.io-client"
 import { useAuth } from "@/contexts/auth-context"
+import Pusher from "pusher-js"
 
 type Message = {
   id?: number
@@ -19,7 +19,8 @@ type Message = {
 }
 
 export function useRealTimeMessaging(conversationId: number) {
-  const [socket, setSocket] = useState<Socket | null>(null)
+  const [pusher, setPusher] = useState<Pusher | null>(null)
+  const [channel, setChannel] = useState<any>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -29,24 +30,44 @@ export function useRealTimeMessaging(conversationId: number) {
   const [filteredMessages, setFilteredMessages] = useState<Message[]>([])
   const { user } = useAuth()
 
-  // Initialize socket connection
+  // Initialize Pusher connection
   useEffect(() => {
     if (!user) return
 
-    const socketInstance = io("/api/socket")
-    setSocket(socketInstance)
+    // Fetch Pusher configuration from server
+    const initializePusher = async () => {
+      try {
+        const response = await fetch("/api/config/pusher")
+        const config = await response.json()
 
-    socketInstance.on("connect", () => {
-      console.log("Socket connected")
-    })
+        // Initialize Pusher with config from server
+        const pusherInstance = new Pusher(config.key, {
+          cluster: config.cluster,
+          authEndpoint: "/api/pusher/auth",
+          forceTLS: true,
+        })
 
-    socketInstance.on("error", (err) => {
-      console.error("Socket error:", err)
-      setError("Connection error. Please try again.")
-    })
+        setPusher(pusherInstance)
 
+        // Subscribe to private channel
+        const channelName = `private-user-${user.id}`
+        const userChannel = pusherInstance.subscribe(channelName)
+        setChannel(userChannel)
+      } catch (error) {
+        console.error("Failed to initialize Pusher:", error)
+      }
+    }
+
+    initializePusher()
+
+    // Clean up on unmount
     return () => {
-      socketInstance.disconnect()
+      if (channel) {
+        pusher?.unsubscribe(`private-user-${user.id}`)
+      }
+      if (pusher) {
+        pusher.disconnect()
+      }
     }
   }, [user])
 
@@ -87,14 +108,14 @@ export function useRealTimeMessaging(conversationId: number) {
     setFilteredMessages(filtered)
   }, [messages, searchQuery])
 
-  // Listen for new messages
+  // Listen for new messages and events
   useEffect(() => {
-    if (!socket || !user) return
+    if (!channel || !user || !conversationId) return
 
     const handleNewMessage = (data: any) => {
       if (data.conversationId === conversationId) {
         const newMessage: Message = {
-          id: data.id,
+          id: data.messageId,
           conversationId: data.conversationId,
           senderId: data.senderId,
           content: data.message,
@@ -111,10 +132,7 @@ export function useRealTimeMessaging(conversationId: number) {
 
         // Mark message as read if it's from someone else
         if (!newMessage.isFromCurrentUser && newMessage.id) {
-          socket.emit("read_receipt", {
-            conversationId,
-            messageId: newMessage.id,
-          })
+          sendReadReceipt(conversationId, newMessage.id)
         }
       }
     }
@@ -147,26 +165,60 @@ export function useRealTimeMessaging(conversationId: number) {
       }
     }
 
-    socket.on("message", handleNewMessage)
-    socket.on("typing", handleTyping)
-    socket.on("read_receipt", handleReadReceipt)
+    // Bind event handlers
+    channel.bind("message", handleNewMessage)
+    channel.bind("typing", handleTyping)
+    channel.bind("read_receipt", handleReadReceipt)
 
     return () => {
-      socket.off("message", handleNewMessage)
-      socket.off("typing", handleTyping)
-      socket.off("read_receipt", handleReadReceipt)
+      // Unbind event handlers
+      channel.unbind("message", handleNewMessage)
+      channel.unbind("typing", handleTyping)
+      channel.unbind("read_receipt", handleReadReceipt)
     }
-  }, [socket, conversationId, user])
+  }, [channel, conversationId, user])
+
+  // Send read receipt
+  const sendReadReceipt = async (conversationId: number, messageId: number) => {
+    try {
+      await fetch("/api/socketio", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          event: "read_receipt",
+          data: {
+            conversationId,
+            messageId,
+          },
+        }),
+      })
+    } catch (error) {
+      console.error("Error sending read receipt:", error)
+    }
+  }
 
   // Handle typing indicator
   const handleInputChange = useCallback(
     (text: string) => {
-      if (!socket || !conversationId) return
+      if (!conversationId) return
 
       // Send typing indicator
-      socket.emit("typing", {
-        conversationId,
-        isTyping: text.length > 0,
+      fetch("/api/socketio", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          event: "typing",
+          data: {
+            conversationId,
+            isTyping: text.length > 0,
+          },
+        }),
+      }).catch((error) => {
+        console.error("Error sending typing indicator:", error)
       })
 
       // Clear previous timeout
@@ -177,15 +229,26 @@ export function useRealTimeMessaging(conversationId: number) {
       // Set new timeout to stop typing indicator after 3 seconds
       if (text.length > 0) {
         const timeout = setTimeout(() => {
-          socket.emit("typing", {
-            conversationId,
-            isTyping: false,
+          fetch("/api/socketio", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              event: "typing",
+              data: {
+                conversationId,
+                isTyping: false,
+              },
+            }),
+          }).catch((error) => {
+            console.error("Error sending typing indicator:", error)
           })
         }, 3000)
         setTypingTimeout(timeout)
       }
     },
-    [socket, conversationId, typingTimeout],
+    [conversationId, typingTimeout],
   )
 
   // Send message function
@@ -259,26 +322,40 @@ export function useRealTimeMessaging(conversationId: number) {
 
         setMessages((prev) => [...prev, newMessage])
 
-        // Emit via socket for real-time
-        if (socket) {
-          socket.emit("message", {
-            conversationId,
-            messageId: data.message.id,
-            message: content,
-            hasAttachment,
-            attachmentUrl,
-            attachmentType,
-            attachmentName,
-          })
-        }
+        // Send via Pusher for real-time
+        await fetch("/api/socketio", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            event: "message",
+            data: {
+              conversationId,
+              messageId: data.message.id,
+              message: content,
+              hasAttachment,
+              attachmentUrl,
+              attachmentType,
+              attachmentName,
+            },
+          }),
+        })
 
         // Clear typing indicator
-        if (socket) {
-          socket.emit("typing", {
-            conversationId,
-            isTyping: false,
-          })
-        }
+        await fetch("/api/socketio", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            event: "typing",
+            data: {
+              conversationId,
+              isTyping: false,
+            },
+          }),
+        })
 
         return true
       } catch (error) {
@@ -286,7 +363,7 @@ export function useRealTimeMessaging(conversationId: number) {
         return false
       }
     },
-    [conversationId, user, socket],
+    [conversationId, user],
   )
 
   return {

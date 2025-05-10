@@ -1,3 +1,5 @@
+import { VendorProfileSkeleton } from "@/components/ui/skeletons"
+
 export default function Loading() {
-  return null
+  return <VendorProfileSkeleton />
 }

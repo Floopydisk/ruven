@@ -6,6 +6,7 @@ import { Bell } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/contexts/auth-context"
+import { initializeNotifications, onNewMessage } from "@/lib/notification-service"
 
 type Notification = {
   id: number
@@ -18,20 +19,33 @@ type Notification = {
 export function MessageNotification() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [hasUnread, setHasUnread] = useState(false)
-  const { isAuthenticated } = useAuth()
+  const { user, isAuthenticated } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
-    if (!isAuthenticated) return
+    if (!isAuthenticated || !user) return
 
     // Fetch initial notifications
     fetchNotifications()
 
-    // Set up polling for new notifications
+    // Set up real-time notifications
+    const { channel } = initializeNotifications(user.id)
+
+    const handleNewMessage = (data: any) => {
+      // Add new notification
+      fetchNotifications()
+    }
+
+    const unbind = onNewMessage(handleNewMessage)
+
+    // Set up polling for new notifications as a fallback
     const interval = setInterval(fetchNotifications, 30000) // Check every 30 seconds
 
-    return () => clearInterval(interval)
-  }, [isAuthenticated])
+    return () => {
+      clearInterval(interval)
+      unbind()
+    }
+  }, [isAuthenticated, user])
 
   const fetchNotifications = async () => {
     try {

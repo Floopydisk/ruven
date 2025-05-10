@@ -1,273 +1,115 @@
-"use client"
-
-import type React from "react"
-
-import { useState, useEffect, useRef } from "react"
-import { useRouter } from "next/navigation"
+import { redirect } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, Send, Loader2, Search, X } from "lucide-react"
-import { useAuth } from "@/contexts/auth-context"
 import { NavBar } from "@/components/nav-bar"
-import { useRealTimeMessaging } from "@/hooks/use-real-time-messaging"
-import { TypingIndicator } from "@/components/typing-indicator"
-import { MessageStatus } from "@/components/message-status"
-import { FileAttachment, FilePreview } from "@/components/file-attachment"
+import { BottomNavigation } from "@/components/bottom-navigation"
+import { MessageList } from "@/components/message-list"
+import { MessageInput } from "@/components/message-input"
+import { getCurrentUser } from "@/lib/auth"
+import { neon } from "@neondatabase/serverless"
+import { ArrowLeft } from "lucide-react"
 
-export default function ConversationPage({ params }: { params: { id: string } }) {
-  const router = useRouter()
-  const { user, isAuthenticated, isLoading } = useAuth()
-  const [vendorData, setVendorData] = useState<any>(null)
-  const [newMessage, setNewMessage] = useState("")
-  const [isSending, setIsSending] = useState(false)
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [isSearching, setIsSearching] = useState(false)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+export const dynamic = "force-dynamic"
 
+async function getConversationData(conversationId: number, userId: number) {
+  const sql = neon(process.env.DATABASE_URL!)
+
+  // Get conversation details
+  const conversationResult = await sql`
+    SELECT 
+      c.id, 
+      c.user_id, 
+      c.vendor_id,
+      v.business_name as vendor_name,
+      v.logo_image as vendor_image
+    FROM conversations c
+    JOIN vendors v ON c.vendor_id = v.id
+    WHERE c.id = ${conversationId} AND c.user_id = ${userId}
+  `
+
+  if (conversationResult.length === 0) {
+    return null
+  }
+
+  const conversation = {
+    id: conversationResult[0].id,
+    userId: conversationResult[0].user_id,
+    vendorId: conversationResult[0].vendor_id,
+    vendorName: conversationResult[0].vendor_name,
+    vendorImage: conversationResult[0].vendor_image,
+  }
+
+  // Mark all messages as read
+  await sql`
+    UPDATE messages
+    SET is_read = true
+    WHERE conversation_id = ${conversationId} AND recipient_id = ${userId} AND is_read = false
+  `
+
+  return {
+    conversation,
+  }
+}
+
+export default async function ConversationPage({ params }: { params: { id: string } }) {
   const conversationId = Number.parseInt(params.id)
-  const {
-    messages,
-    isLoading: isLoadingMessages,
-    error,
-    sendMessage,
-    handleInputChange,
-    typingUsers,
-    searchQuery,
-    setSearchQuery,
-  } = useRealTimeMessaging(conversationId)
-
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push(`/auth/login?redirect=/messages/${params.id}`)
-    }
-  }, [isLoading, isAuthenticated, router, params.id])
-
-  // Fetch conversation data
-  useEffect(() => {
-    if (isAuthenticated && params.id) {
-      fetchConversationData()
-    }
-  }, [isAuthenticated, params.id])
-
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    if (!isSearching) {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-    }
-  }, [messages, isSearching])
-
-  const fetchConversationData = async () => {
-    try {
-      // Fetch conversation details
-      const conversationResponse = await fetch(`/api/messages/conversations/${params.id}`)
-      if (conversationResponse.ok) {
-        const conversationData = await conversationResponse.json()
-        setVendorData(conversationData.vendor)
-      }
-    } catch (error) {
-      console.error("Error fetching conversation data:", error)
-    }
+  if (isNaN(conversationId)) {
+    redirect("/messages")
   }
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if ((!newMessage.trim() && !selectedFile) || !params.id) return
-
-    setIsSending(true)
-
-    try {
-      const success = await sendMessage(newMessage, selectedFile)
-
-      if (success) {
-        setNewMessage("")
-        setSelectedFile(null)
-      } else {
-        throw new Error("Failed to send message")
-      }
-    } catch (error) {
-      console.error("Error sending message:", error)
-      alert("Failed to send message. Please try again.")
-    } finally {
-      setIsSending(false)
-    }
+  const user = await getCurrentUser()
+  if (!user) {
+    redirect("/auth/login")
   }
 
-  const handleInputChangeWithTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setNewMessage(e.target.value)
-    handleInputChange(e.target.value)
+  const data = await getConversationData(conversationId, user.id)
+  if (!data) {
+    redirect("/messages")
   }
 
-  // Format timestamp
-  const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp)
-    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-  }
-
-  if (isLoading) {
-    return (
-      <main className="flex min-h-screen flex-col">
-        <NavBar />
-        <div className="container px-4 py-6 flex-1 flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </main>
-    )
-  }
+  const { conversation } = data
 
   return (
-    <main className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col pb-16 md:pb-0">
       <NavBar />
 
       <div className="container px-4 py-6 flex-1 flex flex-col">
-        <div className="flex items-center mb-6">
+        <div className="flex items-center mb-4">
           <Link href="/messages" className="mr-4">
             <Button variant="ghost" size="icon">
               <ArrowLeft className="h-5 w-5" />
             </Button>
           </Link>
-          <h1 className="text-2xl font-bold">Conversation</h1>
+          <div className="flex items-center">
+            <div className="relative h-10 w-10 rounded-full overflow-hidden mr-3">
+              <Image
+                src={conversation.vendorImage || "/placeholder.svg?height=40&width=40"}
+                alt={conversation.vendorName}
+                fill
+                className="object-cover"
+              />
+            </div>
+            <div>
+              <h1 className="font-semibold">{conversation.vendorName}</h1>
+              <p className="text-xs text-muted-foreground">Vendor</p>
+            </div>
+          </div>
         </div>
 
         <Card className="flex-1 flex flex-col">
-          <CardHeader className="border-b">
-            <div className="flex items-center justify-between">
-              <CardTitle>
-                {vendorData ? (
-                  <div className="flex items-center">
-                    <div className="relative h-10 w-10 rounded-full overflow-hidden mr-3">
-                      <Image
-                        src={vendorData.logoImage || "/placeholder.svg?height=40&width=40"}
-                        alt={vendorData.businessName}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                    <span>{vendorData.businessName}</span>
-                  </div>
-                ) : (
-                  "Loading..."
-                )}
-              </CardTitle>
-              <div className="flex items-center">
-                {isSearching ? (
-                  <div className="flex items-center">
-                    <Input
-                      placeholder="Search in conversation..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="h-8 w-48 mr-2"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => {
-                        setIsSearching(false)
-                        setSearchQuery("")
-                      }}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsSearching(true)}>
-                    <Search className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            </div>
+          <CardHeader className="px-4 py-3 border-b">
+            <CardTitle className="text-base">Conversation</CardTitle>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col p-0">
-            <div className="flex-1 p-4 overflow-y-auto">
-              {isLoadingMessages ? (
-                <div className="flex justify-center p-4">
-                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                </div>
-              ) : error ? (
-                <div className="flex justify-center p-4">
-                  <p className="text-destructive">{error}</p>
-                </div>
-              ) : messages.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center p-6">
-                  <div className="bg-secondary/30 rounded-lg p-4 max-w-md">
-                    <p className="text-sm text-center text-muted-foreground">
-                      This is the beginning of your conversation with {vendorData?.businessName || "this vendor"}.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {messages.map((message, index) => (
-                    <div
-                      key={message.id || index}
-                      className={`flex ${message.isFromCurrentUser ? "justify-end" : "justify-start"}`}
-                    >
-                      <div
-                        className={`max-w-[80%] rounded-lg p-3 ${
-                          message.isFromCurrentUser
-                            ? "bg-gradient-to-r from-primary to-primary/80 text-primary-foreground"
-                            : "bg-secondary"
-                        }`}
-                      >
-                        {message.hasAttachment && message.attachmentUrl && (
-                          <FilePreview
-                            url={message.attachmentUrl}
-                            type={message.attachmentType || "application/octet-stream"}
-                            name={message.attachmentName || "attachment"}
-                          />
-                        )}
-                        {message.content && <p className="mt-2">{message.content}</p>}
-                        <div
-                          className={`flex items-center justify-between text-xs mt-1 ${
-                            message.isFromCurrentUser ? "text-primary-foreground/70" : "text-muted-foreground"
-                          }`}
-                        >
-                          <span>{formatTimestamp(message.timestamp)}</span>
-                          {message.isFromCurrentUser && (
-                            <MessageStatus
-                              status={message.status}
-                              className={message.isFromCurrentUser ? "text-primary-foreground/70" : ""}
-                            />
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  <div ref={messagesEndRef} />
-                </div>
-              )}
-            </div>
-
-            {vendorData && typingUsers.includes(vendorData.id) && (
-              <TypingIndicator typingUsers={typingUsers} vendorId={vendorData.id} />
-            )}
-
-            <form onSubmit={handleSendMessage} className="border-t p-4">
-              <div className="flex gap-2 items-center">
-                <FileAttachment onFileSelect={setSelectedFile} />
-                <Input
-                  placeholder="Type your message..."
-                  value={newMessage}
-                  onChange={handleInputChangeWithTyping}
-                  className="flex-1"
-                />
-                <Button
-                  type="submit"
-                  disabled={isSending || (!newMessage.trim() && !selectedFile)}
-                  className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground hover:opacity-90 transition-opacity"
-                >
-                  {isSending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
-                </Button>
-              </div>
-            </form>
+            <MessageList conversationId={conversation.id} currentUserId={user.id} />
+            <MessageInput conversationId={conversation.id} />
           </CardContent>
         </Card>
       </div>
-    </main>
+
+      <BottomNavigation />
+    </div>
   )
 }

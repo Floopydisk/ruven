@@ -4,48 +4,57 @@
 
 @layer base {
   :root {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 142.1 70.6% 45.3%;
-    --primary-foreground: 144.9 80.4% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 142.4 71.8% 29.2%;
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 15%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 196 100% 47%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 196 100% 47%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 196 100% 47%;
+
     --radius: 0.5rem;
   }
 
   .light {
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 222 47% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 142.1 76.2% 36.3%;
-    --primary-foreground: 355.7 100% 97.3%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 196 100% 50%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary-foreground: 222 47% 11%;
     --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted-foreground: 215 16% 47%;
     --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent-foreground: 222 47% 11%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 142.1 76.2% 36.3%;
+    --ring: 196 100% 50%;
   }
 
   * {
@@ -57,23 +66,23 @@
   }
 }
 
-/* Custom styles for the modern landing page */
+/* Custom styles for the modern dashboard */
 .glow {
-  box-shadow: 0 0 20px 5px rgba(46, 229, 157, 0.2);
+  box-shadow: 0 0 20px 5px rgba(0, 174, 239, 0.2);
 }
 
 .glow-text {
-  text-shadow: 0 0 10px rgba(46, 229, 157, 0.5);
+  text-shadow: 0 0 10px rgba(0, 174, 239, 0.5);
 }
 
 .gradient-bg {
-  background: radial-gradient(circle at center, rgba(46, 229, 157, 0.15) 0%, rgba(17, 17, 19, 0) 70%);
+  background: radial-gradient(circle at center, rgba(0, 174, 239, 0.15) 0%, rgba(17, 17, 19, 0) 70%);
 }
 
 .gradient-border {
   position: relative;
   border-radius: 0.5rem;
-  background: linear-gradient(to right, #2ee59d, #12c2e9);
+  background: linear-gradient(to right, #00aeef, #0057ff);
   padding: 1px;
 }
 
@@ -83,9 +92,9 @@
 }
 
 .hero-grid {
-  background-image: radial-gradient(circle at center, rgba(46, 229, 157, 0.1) 0%, transparent 8%),
-    linear-gradient(to right, rgba(46, 229, 157, 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(46, 229, 157, 0.03) 1px, transparent 1px);
+  background-image: radial-gradient(circle at center, rgba(0, 174, 239, 0.1) 0%, transparent 8%),
+    linear-gradient(to right, rgba(0, 174, 239, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 174, 239, 0.03) 1px, transparent 1px);
   background-size: 40px 40px, 20px 20px, 20px 20px;
 }
 
@@ -117,7 +126,7 @@
   border-radius: 42% 58% 70% 30% / 45% 45% 55% 55%;
   animation: morph 8s linear infinite;
   transform-style: preserve-3d;
-  background: linear-gradient(135deg, rgba(46, 229, 157, 0.4) 0%, rgba(46, 229, 157, 0.01) 100%);
+  background: linear-gradient(135deg, rgba(0, 174, 239, 0.4) 0%, rgba(0, 87, 255, 0.01) 100%);
 }
 
 @keyframes morph {
@@ -144,18 +153,113 @@
 
 .card-hover:hover {
   transform: translateY(-10px);
-  box-shadow: 0 10px 30px -10px rgba(46, 229, 157, 0.2);
+  box-shadow: 0 10px 30px -10px rgba(0, 174, 239, 0.2);
 }
 
 .glass {
   background: rgba(17, 17, 19, 0.7);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(46, 229, 157, 0.1);
+  border: 1px solid rgba(0, 174, 239, 0.1);
 }
 
 .text-gradient {
-  background: linear-gradient(to right, #2ee59d, #12c2e9);
+  background: linear-gradient(to right, #00aeef, #0057ff);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+
+/* Dashboard specific styles */
+.dashboard-card {
+  @apply bg-secondary/50 border border-border/50 rounded-lg overflow-hidden transition-all duration-300;
+}
+
+.dashboard-card:hover {
+  @apply border-primary/30;
+}
+
+.stat-value {
+  @apply text-3xl font-bold text-foreground;
+}
+
+.stat-label {
+  @apply text-xs text-muted-foreground;
+}
+
+.stat-card {
+  @apply relative p-4 rounded-lg bg-secondary/50 border border-border/50 overflow-hidden;
+}
+
+.progress-bar {
+  @apply h-1.5 rounded-full bg-muted overflow-hidden;
+}
+
+.progress-bar-value {
+  @apply h-full rounded-full bg-primary;
+}
+
+.dashboard-sidebar {
+  @apply w-64 border-r border-border/50 bg-background/95;
+}
+
+.dashboard-sidebar-item {
+  @apply flex items-center gap-3 px-3 py-2 text-sm rounded-md transition-colors;
+}
+
+.dashboard-sidebar-item.active {
+  @apply bg-primary/10 text-primary;
+}
+
+.dashboard-sidebar-item:hover:not(.active) {
+  @apply bg-secondary/80;
+}
+
+/* Mobile specific utilities */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0);
+}
+
+/* Responsive form styles */
+@media (max-width: 640px) {
+  .form-container {
+    @apply px-4;
+  }
+
+  .form-card {
+    @apply shadow-none border-0 bg-transparent;
+  }
+
+  .form-title {
+    @apply text-xl;
+  }
+
+  .form-input {
+    @apply text-base;
+  }
+}
+
+/* Improve tap targets on mobile */
+@media (max-width: 640px) {
+  button,
+  a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .mobile-p-4 {
+    padding: 1rem;
+  }
+
+  .mobile-text-sm {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+  }
+
+  .mobile-gap-2 {
+    gap: 0.5rem;
+  }
 }

@@ -1,29 +1,50 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
-export async function middleware(request: NextRequest) {
-  // Check if the user has a session cookie
-  const sessionCookie = request.cookies.get("auth_session")
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
 
-  // If the user is not authenticated and trying to access protected routes
-  if (
-    !sessionCookie &&
-    (request.nextUrl.pathname.startsWith("/dashboard") || request.nextUrl.pathname === "/profile")
-  ) {
-    return NextResponse.redirect(new URL("/auth/login", request.url))
+  // Check if user is authenticated by looking for the auth_session cookie
+  const isAuthenticated = request.cookies.has("auth_session")
+
+  // Skip middleware for API routes and static assets
+  if (pathname.startsWith("/api") || pathname.startsWith("/_next") || pathname.includes("/favicon.ico")) {
+    return NextResponse.next()
   }
 
-  // If the user is authenticated and trying to access auth pages
-  if (
-    sessionCookie &&
-    (request.nextUrl.pathname.startsWith("/auth/login") || request.nextUrl.pathname.startsWith("/auth/register"))
-  ) {
-    return NextResponse.redirect(new URL("/dashboard", request.url))
+  // Redirect root to home for authenticated users
+  if (pathname === "/" && isAuthenticated) {
+    return NextResponse.redirect(new URL("/home", request.url))
+  }
+
+  // Protect dashboard routes
+  if (pathname.startsWith("/dashboard") && !isAuthenticated) {
+    return NextResponse.redirect(new URL("/auth/login?redirect=" + encodeURIComponent(pathname), request.url))
+  }
+
+  // Protect profile routes
+  if (pathname.startsWith("/profile") && !isAuthenticated) {
+    return NextResponse.redirect(new URL("/auth/login?redirect=" + encodeURIComponent(pathname), request.url))
+  }
+
+  // Protect messages routes
+  if (pathname.startsWith("/messages") && !isAuthenticated) {
+    return NextResponse.redirect(new URL("/auth/login?redirect=" + encodeURIComponent(pathname), request.url))
+  }
+
+  // Protect sell route
+  if (pathname.startsWith("/sell") && !isAuthenticated) {
+    return NextResponse.redirect(new URL("/auth/login?redirect=" + encodeURIComponent(pathname), request.url))
+  }
+
+  // Prevent authenticated users from accessing login/register pages
+  if ((pathname.startsWith("/auth/login") || pathname.startsWith("/auth/register")) && isAuthenticated) {
+    return NextResponse.redirect(new URL("/home", request.url))
   }
 
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/profile", "/auth/login", "/auth/register"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 }

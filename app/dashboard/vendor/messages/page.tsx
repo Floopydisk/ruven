@@ -1,238 +1,143 @@
-"use client"
-
-import { useState, useEffect } from "react"
+import { redirect } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Search, ArrowLeft, MessageSquare, Loader2 } from "lucide-react"
-import { useAuth } from "@/contexts/auth-context"
-import { useRouter } from "next/navigation"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { getCurrentUser } from "@/lib/auth"
+import { neon } from "@neondatabase/serverless"
+import { ArrowLeft, MessageSquare } from "lucide-react"
 
-type Conversation = {
-  id: number
-  userName: string
-  userImage: string | null
-  lastMessage: string
-  timestamp: string
-  unread: boolean
+export const dynamic = "force-dynamic"
+
+async function getConversations(vendorId: number) {
+  const sql = neon(process.env.DATABASE_URL!)
+
+  // Get conversations
+  const conversationsResult = await sql`
+    SELECT 
+      c.id, 
+      c.user_id,
+      u.name as user_name,
+      u.email as user_email,
+      u.profile_image as user_image,
+      (
+        SELECT COUNT(*) FROM messages m 
+        WHERE m.conversation_id = c.id AND m.recipient_id = ${vendorId} AND m.is_read = false
+      ) as unread_count,
+      (
+        SELECT m.content FROM messages m 
+        WHERE m.conversation_id = c.id 
+        ORDER BY m.created_at DESC LIMIT 1
+      ) as last_message,
+      (
+        SELECT m.created_at FROM messages m 
+        WHERE m.conversation_id = c.id 
+        ORDER BY m.created_at DESC LIMIT 1
+      ) as last_message_time
+    FROM conversations c
+    JOIN users u ON c.user_id = u.id
+    WHERE c.vendor_id = ${vendorId}
+    ORDER BY last_message_time DESC
+  `
+
+  return conversationsResult.map((conv) => ({
+    id: conv.id,
+    userId: conv.user_id,
+    userName: conv.user_name || conv.user_email.split("@")[0],
+    userImage: conv.user_image,
+    unreadCount: Number.parseInt(conv.unread_count),
+    lastMessage: conv.last_message,
+    lastMessageTime: conv.last_message_time,
+  }))
 }
 
-export default function VendorMessagesPage() {
-  const router = useRouter()
-  const { user, isAuthenticated, isLoading, isVendor } = useAuth()
-  const [searchQuery, setSearchQuery] = useState("")
-  const [conversations, setConversations] = useState<Conversation[]>([])
-  const [isLoadingConversations, setIsLoadingConversations] = useState(true)
-  const [activeTab, setActiveTab] = useState("all")
-
-  // Redirect if not authenticated or not a vendor
-  useEffect(() => {
-    if (!isLoading && (!isAuthenticated || !isVendor)) {
-      router.push("/auth/login?redirect=/dashboard/vendor/messages")
-    }
-  }, [isLoading, isAuthenticated, isVendor, router])
-
-  // Fetch conversations
-  useEffect(() => {
-    if (isAuthenticated && isVendor) {
-      fetchConversations()
-    }
-  }, [isAuthenticated, isVendor])
-
-  const fetchConversations = async () => {
-    setIsLoadingConversations(true)
-    try {
-      const response = await fetch("/api/messages/vendor/conversations")
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch conversations")
-      }
-
-      const data = await response.json()
-      setConversations(data.conversations)
-    } catch (error) {
-      console.error("Error fetching conversations:", error)
-    } finally {
-      setIsLoadingConversations(false)
-    }
+export default async function VendorMessagesPage() {
+  const user = await getCurrentUser()
+  if (!user) {
+    redirect("/auth/login")
   }
 
-  const filteredConversations = conversations.filter((conversation) => {
-    // Filter by search query
-    const matchesSearch =
-      conversation.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      conversation.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
+  // Check if user is a vendor
+  const sql = neon(process.env.DATABASE_URL!)
+  const vendorResult = await sql`
+    SELECT id FROM vendors WHERE user_id = ${user.id}
+  `
 
-    // Filter by tab
-    if (activeTab === "all") return matchesSearch
-    if (activeTab === "unread") return matchesSearch && conversation.unread
-
-    return matchesSearch
-  })
-
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen flex-col">
-        <div className="container px-4 py-6 flex-1 flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </div>
-    )
+  if (vendorResult.length === 0) {
+    redirect("/dashboard/vendor")
   }
+
+  const vendorId = vendorResult[0].id
+  const conversations = await getConversations(vendorId)
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="border-b">
+      <div className="border-b">
         <div className="container flex h-16 items-center px-4">
           <Link href="/dashboard/vendor" className="flex items-center">
             <ArrowLeft className="h-5 w-5 mr-2" />
             <span className="font-medium">Back to Dashboard</span>
           </Link>
-          <div className="ml-auto flex items-center gap-2">
-            <h1 className="text-xl font-bold">Customer Messages</h1>
-          </div>
         </div>
-      </header>
+      </div>
 
-      <div className="container px-4 py-6 flex-1">
-        <div className="flex flex-col space-y-6">
-          <div className="flex items-center justify-between">
-            <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <div className="flex items-center justify-between mb-4">
-                <TabsList>
-                  <TabsTrigger value="all">All Messages</TabsTrigger>
-                  <TabsTrigger value="unread">Unread</TabsTrigger>
-                </TabsList>
-                <div className="relative w-64">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="search"
-                    placeholder="Search conversations..."
-                    className="pl-8"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
+      <div className="container px-4 py-6">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold">Customer Messages</h1>
+          <p className="text-muted-foreground">Manage and respond to customer inquiries</p>
+        </div>
+
+        {conversations.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <div className="rounded-full bg-primary/10 p-3 mb-4">
+                <MessageSquare className="h-6 w-6 text-primary" />
               </div>
-
-              <TabsContent value="all" className="space-y-4">
-                {isLoadingConversations ? (
-                  <div className="flex justify-center p-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  </div>
-                ) : filteredConversations.length > 0 ? (
-                  <div className="space-y-2">
-                    {filteredConversations.map((conversation) => (
-                      <Link key={conversation.id} href={`/dashboard/vendor/messages/${conversation.id}`}>
-                        <Card
-                          className={`hover:border-primary/30 transition-colors ${
-                            conversation.unread ? "border-primary/50" : ""
-                          }`}
-                        >
-                          <CardContent className="p-4">
-                            <div className="flex items-center">
-                              <div className="relative h-12 w-12 rounded-full overflow-hidden">
-                                <Image
-                                  src={conversation.userImage || "/placeholder.svg?height=100&width=100"}
-                                  alt={conversation.userName}
-                                  fill
-                                  className="object-cover"
-                                />
-                              </div>
-                              <div className="ml-4 flex-1">
-                                <div className="flex justify-between items-center">
-                                  <h3 className={`font-medium ${conversation.unread ? "font-semibold" : ""}`}>
-                                    {conversation.userName}
-                                  </h3>
-                                  <span className="text-xs text-muted-foreground">{conversation.timestamp}</span>
-                                </div>
-                                <p
-                                  className={`text-sm truncate ${
-                                    conversation.unread ? "text-foreground font-medium" : "text-muted-foreground"
-                                  }`}
-                                >
-                                  {conversation.lastMessage}
-                                </p>
-                              </div>
-                              {conversation.unread && <div className="ml-2 h-2 w-2 rounded-full bg-primary"></div>}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium mb-2">No conversations found</h3>
-                    <p className="text-muted-foreground mb-6">
-                      {searchQuery
-                        ? "Try a different search term"
-                        : "You don't have any messages yet. Customers will appear here when they message you."}
-                    </p>
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="unread" className="space-y-4">
-                {isLoadingConversations ? (
-                  <div className="flex justify-center p-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  </div>
-                ) : filteredConversations.length > 0 ? (
-                  <div className="space-y-2">
-                    {filteredConversations.map((conversation) => (
-                      <Link key={conversation.id} href={`/dashboard/vendor/messages/${conversation.id}`}>
-                        <Card
-                          className={`hover:border-primary/30 transition-colors ${
-                            conversation.unread ? "border-primary/50" : ""
-                          }`}
-                        >
-                          <CardContent className="p-4">
-                            <div className="flex items-center">
-                              <div className="relative h-12 w-12 rounded-full overflow-hidden">
-                                <Image
-                                  src={conversation.userImage || "/placeholder.svg?height=100&width=100"}
-                                  alt={conversation.userName}
-                                  fill
-                                  className="object-cover"
-                                />
-                              </div>
-                              <div className="ml-4 flex-1">
-                                <div className="flex justify-between items-center">
-                                  <h3 className={`font-medium ${conversation.unread ? "font-semibold" : ""}`}>
-                                    {conversation.userName}
-                                  </h3>
-                                  <span className="text-xs text-muted-foreground">{conversation.timestamp}</span>
-                                </div>
-                                <p
-                                  className={`text-sm truncate ${
-                                    conversation.unread ? "text-foreground font-medium" : "text-muted-foreground"
-                                  }`}
-                                >
-                                  {conversation.lastMessage}
-                                </p>
-                              </div>
-                              {conversation.unread && <div className="ml-2 h-2 w-2 rounded-full bg-primary"></div>}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium mb-2">No unread messages</h3>
-                    <p className="text-muted-foreground mb-6">You've read all your messages!</p>
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
-          </div>
-        </div>
+              <h3 className="text-lg font-medium mb-2">No messages yet</h3>
+              <p className="text-muted-foreground text-center mb-6 max-w-md">
+                You haven't received any customer messages yet. When customers contact you, their messages will appear
+                here.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader className="px-4 py-3 border-b">
+              <CardTitle className="text-base">Recent Conversations</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y">
+                {conversations.map((conversation) => (
+                  <Link key={conversation.id} href={`/dashboard/vendor/messages/${conversation.id}`}>
+                    <div className="flex items-center p-4 hover:bg-muted/50 transition-colors">
+                      <div className="relative h-12 w-12 rounded-full overflow-hidden mr-4">
+                        <Image
+                          src={conversation.userImage || "/placeholder.svg?height=48&width=48"}
+                          alt={conversation.userName}
+                          fill
+                          className="object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-baseline mb-1">
+                          <h3 className="font-medium truncate">{conversation.userName}</h3>
+                          <span className="text-xs text-muted-foreground ml-2 whitespace-nowrap">
+                            {new Date(conversation.lastMessageTime).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground truncate">{conversation.lastMessage}</p>
+                      </div>
+                      {conversation.unreadCount > 0 && (
+                        <div className="ml-4 bg-primary text-primary-foreground text-xs font-medium rounded-full h-5 min-w-5 flex items-center justify-center px-1.5">
+                          {conversation.unreadCount}
+                        </div>
+                      )}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   )

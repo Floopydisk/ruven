@@ -2,110 +2,117 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, Loader2 } from "lucide-react"
+import { Label } from "@/components/ui/label"
+import { AlertCircle } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useAuth } from "@/contexts/auth-context"
 
 export default function LoginPage() {
-  const router = useRouter()
-  const { login, isAuthenticated, isVendor } = useAuth()
-  const [isLoading, setIsLoading] = useState(false)
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { login } = useAuth()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirect = searchParams?.get("redirect") || "/home"
 
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      if (isVendor) {
-        router.push("/dashboard/vendor")
-      } else {
-        router.push("/dashboard")
-      }
-    }
-  }, [isAuthenticated, isVendor, router])
-
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
+    setIsSubmitting(true)
     setError(null)
-
-    const formData = new FormData(e.currentTarget)
-    const email = formData.get("email") as string
-    const password = formData.get("password") as string
 
     try {
       const result = await login(email, password)
 
-      if (!result.success) {
-        throw new Error(result.error || "Login failed")
-      }
-
-      // Redirect based on user type
-      if (result.isVendor) {
-        router.push("/dashboard/vendor")
+      if (result.success) {
+        // Small delay to ensure cookies are set before redirect
+        setTimeout(() => {
+          router.push(redirect)
+        }, 100)
       } else {
-        router.push("/dashboard")
+        setError(result.error || "Invalid email or password")
       }
-    } catch (err: any) {
-      setError(err.message || "Login failed. Please try again.")
+    } catch (err) {
+      setError("An unexpected error occurred. Please try again.")
+      console.error(err)
     } finally {
-      setIsLoading(false)
+      setIsSubmitting(false)
     }
   }
 
   return (
-    <div className="container flex h-screen w-screen flex-col items-center justify-center">
-      <Link href="/" className="absolute left-4 top-4 md:left-8 md:top-8 flex items-center text-sm font-medium">
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Back
-      </Link>
-
-      <Card className="w-full max-w-sm">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold">Login</CardTitle>
-          <CardDescription>Enter your email and password to access your account</CardDescription>
+    <div className="flex min-h-screen items-center justify-center bg-dashboard-bg p-4">
+      <Card className="w-full max-w-md bg-dashboard-card text-dashboard-text">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold text-dashboard-accent">Welcome back</CardTitle>
+          <CardDescription className="text-dashboard-muted">Sign in to your account to continue</CardDescription>
         </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            {error && <div className="p-3 bg-destructive/15 text-destructive text-sm rounded-md">{error}</div>}
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input id="email" name="email" type="email" placeholder="m.scott@dundermifflin.com" required />
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <Link href="/auth/forgot-password" className="text-sm text-primary hover:underline">
-                  Forgot password?
-                </Link>
-              </div>
-              <Input id="password" name="password" type="password" required />
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col">
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Logging in...
-                </>
-              ) : (
-                "Log in"
+        <CardContent>
+          <form onSubmit={handleSubmit}>
+            <div className="grid gap-4">
+              {error && (
+                <Alert className="bg-dashboard-card border-dashboard-danger text-dashboard-danger">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Error</AlertTitle>
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
               )}
-            </Button>
-            <div className="mt-4 text-center text-sm">
-              Don&apos;t have an account?{" "}
-              <Link href="/auth/register" className="text-primary hover:underline">
-                Sign up
-              </Link>
+              <div className="grid gap-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="name@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="bg-dashboard-bg border-dashboard-muted"
+                />
+              </div>
+              <div className="grid gap-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">Password</Label>
+                  <Link
+                    href="/auth/reset-password"
+                    className="text-sm font-medium text-dashboard-accent hover:underline"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="bg-dashboard-bg border-dashboard-muted"
+                />
+              </div>
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="bg-dashboard-accent hover:bg-dashboard-accent/90 text-white"
+              >
+                {isSubmitting ? "Signing in..." : "Sign in"}
+              </Button>
             </div>
-          </CardFooter>
-        </form>
+          </form>
+        </CardContent>
+        <CardFooter className="flex flex-col items-center gap-4">
+          <div className="text-center text-sm text-dashboard-muted">
+            Don&apos;t have an account?{" "}
+            <Link href="/auth/register" className="text-dashboard-accent hover:underline">
+              Sign up
+            </Link>
+          </div>
+        </CardFooter>
       </Card>
     </div>
   )
