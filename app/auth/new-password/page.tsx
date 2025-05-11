@@ -11,8 +11,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from "@/components/ui/label"
 import { AlertCircle, ArrowLeft, CheckCircle2, Eye, EyeOff } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Suspense } from "react"
 
-export default function NewPasswordPage() {
+function NewPasswordContent() {
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -154,5 +155,13 @@ export default function NewPasswordPage() {
         </CardFooter>
       </Card>
     </div>
+  )
+}
+
+export default function NewPasswordPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center">Loading...</div>}>
+      <NewPasswordContent />
+    </Suspense>
   )
 }
