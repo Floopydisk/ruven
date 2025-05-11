@@ -36,7 +36,7 @@ export default function ResetPasswordPage() {
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to send reset password email")
+        throw new Error(data.error || "Failed to send reset email")
       }
 
       setSuccess(true)
@@ -53,16 +53,16 @@ export default function ResetPasswordPage() {
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-dashboard-accent">Reset Password</CardTitle>
           <CardDescription className="text-dashboard-muted">
-            Enter your email address and we'll send you a link to reset your password.
+            Enter your email address and we'll send you a link to reset your password
           </CardDescription>
         </CardHeader>
         <CardContent>
           {success ? (
             <Alert className="bg-dashboard-card border-dashboard-success text-dashboard-success">
               <CheckCircle2 className="h-4 w-4" />
-              <AlertTitle>Email sent!</AlertTitle>
+              <AlertTitle>Check your email</AlertTitle>
               <AlertDescription>
-                If an account exists with that email, you'll receive a password reset link shortly.
+                If an account exists with the email you entered, we've sent password reset instructions to it.
               </AlertDescription>
             </Alert>
           ) : (
@@ -80,7 +80,6 @@ export default function ResetPasswordPage() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="name@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required

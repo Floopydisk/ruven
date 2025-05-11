@@ -2,25 +2,36 @@
 
 import type React from "react"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Label } from "@/components/ui/label"
-import { AlertCircle } from "lucide-react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Suspense } from "react"
 
-export default function TwoFactorVerifyPage() {
+function TwoFactorVerifyContent() {
   const [code, setCode] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string | null>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    const userIdParam = searchParams.get("userId")
+    if (userIdParam) {
+      setUserId(userIdParam)
+    } else {
+      setError("Invalid authentication request")
+    }
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
-    setError("")
+    if (!userId) return
+
+    setIsSubmitting(true)
+    setError(null)
 
     try {
       const response = await fetch("/api/auth/two-factor/verify", {
@@ -28,7 +39,7 @@ export default function TwoFactorVerifyPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ userId, code }),
       })
 
       const data = await response.json()
@@ -37,52 +48,52 @@ export default function TwoFactorVerifyPage() {
         throw new Error(data.error || "Failed to verify code")
       }
 
-      // Redirect to dashboard on success
-      router.push("/dashboard")
-    } catch (err: any) {
-      setError(err.message)
+      // Redirect to home page or callback URL
+      router.push("/home")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "An unexpected error occurred")
     } finally {
-      setIsLoading(false)
+      setIsSubmitting(false)
     }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
+    <div className="flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
+        <CardHeader>
           <CardTitle className="text-2xl font-bold">Two-Factor Authentication</CardTitle>
           <CardDescription>Enter the verification code from your authenticator app</CardDescription>
         </CardHeader>
-        <CardContent>
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <form onSubmit={handleSubmit}>
-            <div className="grid gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="code">Verification Code</Label>
-                <Input
-                  id="code"
-                  placeholder="Enter 6-digit code"
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  required
-                  maxLength={6}
-                  className="text-center text-xl tracking-widest"
-                />
-              </div>
+        <form onSubmit={handleSubmit}>
+          <CardContent className="space-y-4">
+            {error && <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded">{error}</div>}
+            <div className="space-y-2">
+              <Input
+                id="code"
+                placeholder="Enter 6-digit code"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                maxLength={6}
+                required
+                className="text-center text-2xl tracking-widest"
+              />
             </div>
-          </form>
-        </CardContent>
-        <CardFooter>
-          <Button className="w-full" onClick={handleSubmit} disabled={isLoading || code.length !== 6}>
-            {isLoading ? "Verifying..." : "Verify"}
-          </Button>
-        </CardFooter>
+          </CardContent>
+          <CardFooter>
+            <Button type="submit" className="w-full" disabled={isSubmitting || !userId}>
+              {isSubmitting ? "Verifying..." : "Verify"}
+            </Button>
+          </CardFooter>
+        </form>
       </Card>
     </div>
+  )
+}
+
+export default function TwoFactorVerifyPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center">Loading...</div>}>
+      <TwoFactorVerifyContent />
+    </Suspense>
   )
 }

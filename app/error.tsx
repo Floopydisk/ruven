@@ -2,7 +2,6 @@
 
 import { useEffect } from "react"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
 
 export default function Error({
   error,
@@ -17,17 +16,23 @@ export default function Error({
   }, [error])
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-100 p-4 text-center">
+    <div className="flex min-h-screen flex-col items-center justify-center p-4 text-center">
       <div className="space-y-6 max-w-md">
-        <h1 className="text-4xl font-bold text-gray-900">Something went wrong</h1>
-        <p className="text-gray-600">
-          We're sorry, but something went wrong. Please try again or contact support if the problem persists.
-        </p>
+        <h1 className="text-4xl font-bold">Something went wrong</h1>
+        <p>We're sorry, but something went wrong. Please try again or contact support if the problem persists.</p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Button onClick={reset}>Try again</Button>
-          <Button variant="outline" asChild>
-            <Link href="/home">Go to Home</Link>
-          </Button>
+          <button
+            onClick={reset}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          >
+            Try again
+          </button>
+          <Link
+            href="/home"
+            className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-100 transition-colors"
+          >
+            Go to Home
+          </Link>
         </div>
       </div>
     </div>
