@@ -1,7 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Line, LineChart, ResponsiveContainer, XAxis, YAxis } from "recharts"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 
 // Sample data - in a real app, this would come from your database
 const messageData = [
@@ -28,6 +26,101 @@ const responseTimeData = [
   { date: "Feb 26", avgTime: 5 },
 ]
 
+// Simple line chart component using SVG
+function SimpleLineChart({
+  data,
+  dataKeys,
+  colors = ["#2563eb", "#10b981"],
+  height = 300,
+  showLabels = false,
+}: {
+  data: any[]
+  dataKeys: string[]
+  colors?: string[]
+  height?: number
+  showLabels?: boolean
+}) {
+  if (!data || data.length === 0) return <div>No data available</div>
+
+  // Calculate min and max values for scaling
+  const allValues = data.flatMap((item) => dataKeys.map((key) => Number(item[key]) || 0))
+  const minValue = Math.min(...allValues)
+  const maxValue = Math.max(...allValues)
+  const range = maxValue - minValue
+
+  // Padding for the chart
+  const paddingX = 40
+  const paddingY = 20
+  const width = 100 - paddingX / 5 // percentage width
+
+  // Calculate points for each line
+  const lines = dataKeys.map((key, keyIndex) => {
+    const points = data.map((item, index) => {
+      const x = paddingX / 2 + (index * (width - paddingX)) / (data.length - 1) + "%"
+      const value = Number(item[key]) || 0
+      const y = paddingY + ((maxValue - value) / (range || 1)) * (height - paddingY * 2)
+      return `${x},${y}`
+    })
+    return { key, points: points.join(" "), color: colors[keyIndex % colors.length] }
+  })
+
+  return (
+    <div className="w-full" style={{ height: `${height}px` }}>
+      <svg width="100%" height="100%" viewBox={`0 0 100 ${height}`} preserveAspectRatio="none">
+        {/* X-axis */}
+        <line
+          x1={`${paddingX / 2}%`}
+          y1={height - paddingY}
+          x2={`${width}%`}
+          y2={height - paddingY}
+          stroke="#e5e7eb"
+          strokeWidth="1"
+        />
+
+        {/* Y-axis */}
+        <line
+          x1={`${paddingX / 2}%`}
+          y1={paddingY}
+          x2={`${paddingX / 2}%`}
+          y2={height - paddingY}
+          stroke="#e5e7eb"
+          strokeWidth="1"
+        />
+
+        {/* Draw lines */}
+        {lines.map((line, index) => (
+          <polyline key={index} points={line.points} fill="none" stroke={line.color} strokeWidth="2" />
+        ))}
+
+        {/* X-axis labels */}
+        {showLabels &&
+          data.map((item, index) => (
+            <text
+              key={`x-${index}`}
+              x={`${paddingX / 2 + (index * (width - paddingX)) / (data.length - 1)}%`}
+              y={height - paddingY / 2}
+              fontSize="8"
+              textAnchor="middle"
+              fill="#6b7280"
+            >
+              {item.date}
+            </text>
+          ))}
+      </svg>
+
+      {/* Legend */}
+      <div className="flex justify-center mt-4 gap-4">
+        {dataKeys.map((key, index) => (
+          <div key={index} className="flex items-center">
+            <div className="w-3 h-3 mr-1" style={{ backgroundColor: colors[index % colors.length] }}></div>
+            <span className="text-sm text-gray-600">{key}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function MessagingAnalyticsPage() {
   return (
     <div className="space-y-6">
@@ -50,40 +143,7 @@ export default function MessagingAnalyticsPage() {
               <CardDescription>Total messages sent over time</CardDescription>
             </CardHeader>
             <CardContent className="h-[300px]">
-              <ChartContainer
-                config={{
-                  count: {
-                    label: "Message Count",
-                    color: "hsl(var(--chart-1))",
-                  },
-                  activeUsers: {
-                    label: "Active Users",
-                    color: "hsl(var(--chart-2))",
-                  },
-                }}
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={messageData}>
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Line
-                      type="monotone"
-                      dataKey="count"
-                      stroke="var(--color-count)"
-                      strokeWidth={2}
-                      activeDot={{ r: 6 }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="activeUsers"
-                      stroke="var(--color-activeUsers)"
-                      strokeWidth={2}
-                      activeDot={{ r: 6 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </ChartContainer>
+              <SimpleLineChart data={messageData} dataKeys={["count", "activeUsers"]} colors={["#2563eb", "#10b981"]} />
             </CardContent>
           </Card>
 
@@ -123,29 +183,7 @@ export default function MessagingAnalyticsPage() {
               <CardDescription>Average time to respond to messages (in hours)</CardDescription>
             </CardHeader>
             <CardContent className="h-[300px]">
-              <ChartContainer
-                config={{
-                  avgTime: {
-                    label: "Response Time (hours)",
-                    color: "hsl(var(--chart-3))",
-                  },
-                }}
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={responseTimeData}>
-                    <XAxis dataKey="date" />
-                    <YAxis />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Line
-                      type="monotone"
-                      dataKey="avgTime"
-                      stroke="var(--color-avgTime)"
-                      strokeWidth={2}
-                      activeDot={{ r: 6 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </ChartContainer>
+              <SimpleLineChart data={responseTimeData} dataKeys={["avgTime"]} colors={["#8b5cf6"]} />
             </CardContent>
           </Card>
 
