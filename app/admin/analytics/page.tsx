@@ -2,23 +2,84 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AdminNavbar } from "@/components/admin-navbar"
 import { getUserAnalytics, getSecurityAnalytics, getMessageAnalytics } from "@/lib/analytics-service"
-import {
-  Line,
-  LineChart,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { Users, Shield, MessageSquare, TrendingUp, UserCheck, AlertTriangle } from "lucide-react"
+
+// Simple chart components that don't rely on complex inheritance
+const SimpleLineChart = ({ data, xKey, yKey, title }) => (
+  <div className="h-[300px] w-full relative">
+    <div className="absolute top-0 left-0 right-0 text-center font-medium">{title}</div>
+    <div className="flex items-end h-[250px] mt-8 w-full">
+      {data.map((item, index) => (
+        <div key={index} className="flex flex-col items-center flex-1">
+          <div
+            className="bg-primary w-4 rounded-t-sm"
+            style={{ height: `${(item[yKey] / Math.max(...data.map((d) => d[yKey]))) * 200}px` }}
+          ></div>
+          <div className="text-xs mt-1 truncate w-full text-center">{item[xKey]}</div>
+        </div>
+      ))}
+    </div>
+  </div>
+)
+
+const SimplePieChart = ({ data, valueKey, nameKey, title }) => {
+  const total = data.reduce((sum, item) => sum + item[valueKey], 0)
+  const colors = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8", "#82ca9d"]
+
+  return (
+    <div className="h-[300px] w-full relative">
+      <div className="absolute top-0 left-0 right-0 text-center font-medium">{title}</div>
+      <div className="flex justify-center items-center h-[250px] mt-8">
+        <div className="relative w-[200px] h-[200px]">
+          {data.map((item, index) => {
+            const percentage = (item[valueKey] / total) * 100
+            const startAngle =
+              index === 0 ? 0 : data.slice(0, index).reduce((sum, d) => sum + (d[valueKey] / total) * 360, 0)
+            const endAngle = startAngle + (item[valueKey] / total) * 360
+
+            return (
+              <div key={index} className="absolute inset-0">
+                <svg width="100%" height="100%" viewBox="0 0 100 100">
+                  <path
+                    d={`M 50 50 L ${50 + 45 * Math.cos(((startAngle - 90) * Math.PI) / 180)} ${50 + 45 * Math.sin(((startAngle - 90) * Math.PI) / 180)} A 45 45 0 ${endAngle - startAngle > 180 ? 1 : 0} 1 ${50 + 45 * Math.cos(((endAngle - 90) * Math.PI) / 180)} ${50 + 45 * Math.sin(((endAngle - 90) * Math.PI) / 180)} Z`}
+                    fill={colors[index % colors.length]}
+                  />
+                </svg>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+      <div className="flex flex-wrap justify-center gap-2 mt-4">
+        {data.map((item, index) => (
+          <div key={index} className="flex items-center text-xs">
+            <div className="w-3 h-3 mr-1" style={{ backgroundColor: colors[index % colors.length] }}></div>
+            <span>
+              {item[nameKey]}: {((item[valueKey] / total) * 100).toFixed(0)}%
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const SimpleBarChart = ({ data, xKey, yKey, title }) => (
+  <div className="h-[300px] w-full relative">
+    <div className="absolute top-0 left-0 right-0 text-center font-medium">{title}</div>
+    <div className="flex items-end h-[250px] mt-8 w-full">
+      {data.map((item, index) => (
+        <div key={index} className="flex flex-col items-center flex-1">
+          <div
+            className="bg-blue-500 w-6 rounded-t-sm"
+            style={{ height: `${(item[yKey] / Math.max(...data.map((d) => d[yKey]))) * 200}px` }}
+          ></div>
+          <div className="text-xs mt-1 truncate w-full text-center">{item[xKey]}</div>
+        </div>
+      ))}
+    </div>
+  </div>
+)
 
 export default async function AdminAnalyticsPage() {
   // Fetch analytics data
@@ -26,8 +87,16 @@ export default async function AdminAnalyticsPage() {
   const securityAnalytics = await getSecurityAnalytics()
   const messageAnalytics = await getMessageAnalytics()
 
-  // Colors for charts
-  const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8", "#82ca9d"]
+  // Format dates for display
+  const formatMonth = (dateStr) => {
+    const date = new Date(dateStr)
+    return date.toLocaleDateString("en-US", { month: "short" })
+  }
+
+  const formatDay = (dateStr) => {
+    const date = new Date(dateStr)
+    return date.toLocaleDateString("en-US", { month: "numeric", day: "numeric" })
+  }
 
   return (
     <main className="flex min-h-screen flex-col">
@@ -122,39 +191,12 @@ export default async function AdminAnalyticsPage() {
                 <CardDescription>New user registrations over the last 12 months</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-[300px]">
-                  <ChartContainer
-                    config={{
-                      users: {
-                        label: "Users",
-                        color: "hsl(var(--chart-1))",
-                      },
-                    }}
-                  >
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={userAnalytics?.userGrowth || []}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis
-                          dataKey="month"
-                          tickFormatter={(value) => {
-                            const date = new Date(value)
-                            return date.toLocaleDateString("en-US", { month: "short" })
-                          }}
-                        />
-                        <YAxis />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <Legend />
-                        <Line
-                          type="monotone"
-                          dataKey="count"
-                          name="Users"
-                          stroke="var(--color-users)"
-                          activeDot={{ r: 8 }}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </ChartContainer>
-                </div>
+                <SimpleLineChart
+                  data={userAnalytics?.userGrowth || []}
+                  xKey="month"
+                  yKey="count"
+                  title="Monthly User Growth"
+                />
               </CardContent>
             </Card>
 
@@ -166,29 +208,12 @@ export default async function AdminAnalyticsPage() {
                   <CardDescription>Distribution of users by role</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={userAnalytics?.usersByRole || []}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          outerRadius={80}
-                          fill="#8884d8"
-                          dataKey="count"
-                          nameKey="role"
-                          label={({ role, count, percent }) => `${role}: ${(percent * 100).toFixed(0)}%`}
-                        >
-                          {userAnalytics?.usersByRole?.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip formatter={(value, name) => [`${value} users`, name]} />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
+                  <SimplePieChart
+                    data={userAnalytics?.usersByRole || []}
+                    valueKey="count"
+                    nameKey="role"
+                    title="User Roles"
+                  />
                 </CardContent>
               </Card>
 
@@ -198,30 +223,15 @@ export default async function AdminAnalyticsPage() {
                   <CardDescription>Verified vs. unverified users</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={[
-                            { name: "Verified", value: userAnalytics?.verifiedUsers || 0 },
-                            { name: "Unverified", value: userAnalytics?.unverifiedUsers || 0 },
-                          ]}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          outerRadius={80}
-                          fill="#8884d8"
-                          dataKey="value"
-                          label={({ name, value, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                        >
-                          <Cell fill="#4ade80" />
-                          <Cell fill="#f87171" />
-                        </Pie>
-                        <Tooltip formatter={(value, name) => [`${value} users`, name]} />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
+                  <SimplePieChart
+                    data={[
+                      { name: "Verified", value: userAnalytics?.verifiedUsers || 0 },
+                      { name: "Unverified", value: userAnalytics?.unverifiedUsers || 0 },
+                    ]}
+                    valueKey="value"
+                    nameKey="name"
+                    title="Verification Status"
+                  />
                 </CardContent>
               </Card>
             </div>
@@ -300,39 +310,12 @@ export default async function AdminAnalyticsPage() {
                 <CardDescription>Security events over the last 30 days</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-[300px]">
-                  <ChartContainer
-                    config={{
-                      events: {
-                        label: "Events",
-                        color: "hsl(var(--chart-1))",
-                      },
-                    }}
-                  >
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={securityAnalytics?.eventsOverTime || []}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis
-                          dataKey="day"
-                          tickFormatter={(value) => {
-                            const date = new Date(value)
-                            return date.toLocaleDateString("en-US", { month: "numeric", day: "numeric" })
-                          }}
-                        />
-                        <YAxis />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <Legend />
-                        <Line
-                          type="monotone"
-                          dataKey="count"
-                          name="Events"
-                          stroke="var(--color-events)"
-                          activeDot={{ r: 8 }}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </ChartContainer>
-                </div>
+                <SimpleLineChart
+                  data={securityAnalytics?.eventsOverTime || []}
+                  xKey="day"
+                  yKey="count"
+                  title="Daily Security Events"
+                />
               </CardContent>
             </Card>
 
@@ -344,18 +327,12 @@ export default async function AdminAnalyticsPage() {
                   <CardDescription>Distribution of security events by type</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={securityAnalytics?.eventsByType || []}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="event_type" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend />
-                        <Bar dataKey="count" name="Events" fill="#8884d8" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
+                  <SimpleBarChart
+                    data={securityAnalytics?.eventsByType || []}
+                    xKey="event_type"
+                    yKey="count"
+                    title="Event Types"
+                  />
                 </CardContent>
               </Card>
 
@@ -365,18 +342,12 @@ export default async function AdminAnalyticsPage() {
                   <CardDescription>Top 10 countries by security events</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={securityAnalytics?.eventsByCountry || []} layout="vertical">
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis type="number" />
-                        <YAxis dataKey="country" type="category" width={80} />
-                        <Tooltip />
-                        <Legend />
-                        <Bar dataKey="count" name="Events" fill="#82ca9d" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
+                  <SimpleBarChart
+                    data={securityAnalytics?.eventsByCountry || []}
+                    xKey="country"
+                    yKey="count"
+                    title="Countries"
+                  />
                 </CardContent>
               </Card>
             </div>
@@ -442,39 +413,12 @@ export default async function AdminAnalyticsPage() {
                 <CardDescription>Messages sent per day over the last 30 days</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-[300px]">
-                  <ChartContainer
-                    config={{
-                      messages: {
-                        label: "Messages",
-                        color: "hsl(var(--chart-1))",
-                      },
-                    }}
-                  >
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={messageAnalytics?.messagesPerDay || []}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis
-                          dataKey="day"
-                          tickFormatter={(value) => {
-                            const date = new Date(value)
-                            return date.toLocaleDateString("en-US", { month: "numeric", day: "numeric" })
-                          }}
-                        />
-                        <YAxis />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <Legend />
-                        <Line
-                          type="monotone"
-                          dataKey="count"
-                          name="Messages"
-                          stroke="var(--color-messages)"
-                          activeDot={{ r: 8 }}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </ChartContainer>
-                </div>
+                <SimpleLineChart
+                  data={messageAnalytics?.messagesPerDay || []}
+                  xKey="day"
+                  yKey="count"
+                  title="Daily Message Activity"
+                />
               </CardContent>
             </Card>
 
@@ -485,18 +429,12 @@ export default async function AdminAnalyticsPage() {
                 <CardDescription>Most active vendors in the last 30 days</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={messageAnalytics?.topVendors || []}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="business_name" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend />
-                      <Bar dataKey="message_count" name="Messages" fill="#8884d8" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                <SimpleBarChart
+                  data={messageAnalytics?.topVendors || []}
+                  xKey="business_name"
+                  yKey="message_count"
+                  title="Vendor Message Volume"
+                />
               </CardContent>
             </Card>
           </TabsContent>
