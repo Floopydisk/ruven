@@ -15,6 +15,8 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['@neondatabase/serverless'],
   },
+  // Add trailing slash to avoid issues with 404 handling
+  trailingSlash: true,
 };
 
 export default nextConfig;

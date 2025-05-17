@@ -8,7 +8,13 @@ export function middleware(request: NextRequest) {
   const isAuthenticated = request.cookies.has("auth_session")
 
   // Skip middleware for API routes and static assets
-  if (pathname.startsWith("/api") || pathname.startsWith("/_next") || pathname.includes("/favicon.ico")) {
+  if (
+    pathname.startsWith("/api") ||
+    pathname.startsWith("/_next") ||
+    pathname.includes("/favicon.ico") ||
+    pathname === "/404" ||
+    pathname === "/not-found"
+  ) {
     return NextResponse.next()
   }
 
