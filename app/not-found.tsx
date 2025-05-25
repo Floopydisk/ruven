@@ -1,11 +1,21 @@
-"use client"
-
 export default function NotFound() {
   return (
-    <html>
+    <html lang="en">
       <head>
         <title>404 - Page Not Found</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <style>{`
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          body {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f9fafb;
+            color: #111827;
+          }
+        `}</style>
       </head>
       <body>
         <div
@@ -17,8 +27,6 @@ export default function NotFound() {
             justifyContent: "center",
             padding: "1rem",
             textAlign: "center",
-            fontFamily: "system-ui, -apple-system, sans-serif",
-            backgroundColor: "#ffffff",
           }}
         >
           <div style={{ maxWidth: "28rem", margin: "0 auto" }}>
@@ -63,18 +71,13 @@ export default function NotFound() {
                 href="/home"
                 style={{
                   display: "inline-block",
-                  padding: "0.5rem 1rem",
+                  padding: "0.75rem 1.5rem",
                   backgroundColor: "#2563eb",
                   color: "white",
-                  borderRadius: "0.375rem",
+                  borderRadius: "0.5rem",
                   textDecoration: "none",
+                  fontWeight: "500",
                   transition: "background-color 0.2s",
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.backgroundColor = "#1d4ed8"
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.backgroundColor = "#2563eb"
                 }}
               >
                 Go to Home
@@ -83,18 +86,13 @@ export default function NotFound() {
                 href="/browse"
                 style={{
                   display: "inline-block",
-                  padding: "0.5rem 1rem",
+                  padding: "0.75rem 1.5rem",
                   border: "1px solid #d1d5db",
-                  borderRadius: "0.375rem",
+                  borderRadius: "0.5rem",
                   textDecoration: "none",
                   color: "#374151",
+                  fontWeight: "500",
                   transition: "background-color 0.2s",
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.backgroundColor = "#f9fafb"
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.backgroundColor = "transparent"
                 }}
               >
                 Browse Vendors
