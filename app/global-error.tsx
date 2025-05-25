@@ -1,10 +1,10 @@
 "use client"
 
-export default function NotFound() {
+export default function GlobalError() {
   return (
     <html>
       <head>
-        <title>404 - Page Not Found</title>
+        <title>Error - Something went wrong</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
       <body>
@@ -24,24 +24,14 @@ export default function NotFound() {
           <div style={{ maxWidth: "28rem", margin: "0 auto" }}>
             <h1
               style={{
-                fontSize: "6rem",
+                fontSize: "2rem",
                 fontWeight: "bold",
-                marginBottom: "1.5rem",
-                color: "#1f2937",
-              }}
-            >
-              404
-            </h1>
-            <h2
-              style={{
-                fontSize: "1.5rem",
-                fontWeight: "600",
                 marginBottom: "1rem",
-                color: "#374151",
+                color: "#dc2626",
               }}
             >
-              Page Not Found
-            </h2>
+              Something went wrong
+            </h1>
             <p
               style={{
                 marginBottom: "2rem",
@@ -49,16 +39,9 @@ export default function NotFound() {
                 lineHeight: "1.5",
               }}
             >
-              The page you are looking for doesn't exist or has been moved.
+              We're sorry, but an error occurred while processing your request.
             </p>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "1rem",
-                justifyContent: "center",
-              }}
-            >
+            <div>
               <a
                 href="/home"
                 style={{
@@ -77,27 +60,7 @@ export default function NotFound() {
                   e.currentTarget.style.backgroundColor = "#2563eb"
                 }}
               >
-                Go to Home
-              </a>
-              <a
-                href="/browse"
-                style={{
-                  display: "inline-block",
-                  padding: "0.5rem 1rem",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "0.375rem",
-                  textDecoration: "none",
-                  color: "#374151",
-                  transition: "background-color 0.2s",
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.backgroundColor = "#f9fafb"
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.backgroundColor = "transparent"
-                }}
-              >
-                Browse Vendors
+                Return to Home
               </a>
             </div>
           </div>
