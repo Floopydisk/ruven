@@ -3,11 +3,13 @@
 export default function GlobalError() {
   return (
     <html>
-      <head>
-        <title>Error - Something went wrong</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-      </head>
-      <body>
+      <body
+        style={{
+          margin: 0,
+          padding: 0,
+          fontFamily: "system-ui, -apple-system, sans-serif",
+        }}
+      >
         <div
           style={{
             display: "flex",
@@ -17,8 +19,7 @@ export default function GlobalError() {
             justifyContent: "center",
             padding: "1rem",
             textAlign: "center",
-            fontFamily: "system-ui, -apple-system, sans-serif",
-            backgroundColor: "#ffffff",
+            backgroundColor: "#f9fafb",
           }}
         >
           <div style={{ maxWidth: "28rem", margin: "0 auto" }}>
@@ -30,7 +31,7 @@ export default function GlobalError() {
                 color: "#dc2626",
               }}
             >
-              Something went wrong
+              Application Error
             </h1>
             <p
               style={{
@@ -39,7 +40,7 @@ export default function GlobalError() {
                 lineHeight: "1.5",
               }}
             >
-              We're sorry, but an error occurred while processing your request.
+              A global error has occurred. Please refresh the page or try again later.
             </p>
             <div>
               <a
@@ -51,17 +52,25 @@ export default function GlobalError() {
                   color: "white",
                   borderRadius: "0.375rem",
                   textDecoration: "none",
-                  transition: "background-color 0.2s",
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.backgroundColor = "#1d4ed8"
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.backgroundColor = "#2563eb"
+                  marginRight: "0.5rem",
                 }}
               >
                 Return to Home
               </a>
+              <button
+                onClick={() => window.location.reload()}
+                style={{
+                  display: "inline-block",
+                  padding: "0.5rem 1rem",
+                  backgroundColor: "#6b7280",
+                  color: "white",
+                  borderRadius: "0.375rem",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                Refresh Page
+              </button>
             </div>
           </div>
         </div>
