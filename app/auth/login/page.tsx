@@ -1,29 +1,17 @@
 "use client"
 
 import type React from "react"
-
-import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { useAuth } from "@/contexts/auth-context"
 import { Suspense } from "react"
 
-function LoginContent() {
+function LoginForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const { login, user } = useAuth()
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const callbackUrl = searchParams?.get("callbackUrl") || "/home"
-
-  useEffect(() => {
-    // If user is already logged in, redirect to callback URL
-    if (user) {
-      router.push(callbackUrl)
-    }
-  }, [user, router, callbackUrl])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -31,13 +19,30 @@ function LoginContent() {
     setError(null)
 
     try {
-      const result = await login(email, password)
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+        cache: "no-store",
+      })
 
-      if (result.success) {
-        router.push(callbackUrl)
-      } else {
-        setError(result.error || "Login failed")
+      if (!res.ok) {
+        const errorData = await res.json()
+        setError(errorData.error || "Login failed")
+        return
       }
+
+      const data = await res.json()
+
+      if (data.requiresTwoFactor) {
+        router.push(`/auth/two-factor-verify?userId=${data.userId}`)
+        return
+      }
+
+      // Redirect to home on successful login
+      router.push("/home")
     } catch (err) {
       setError("An unexpected error occurred")
     } finally {
@@ -156,7 +161,7 @@ function LoginContent() {
 export default function LoginPage() {
   return (
     <Suspense fallback={<div className="flex min-h-screen items-center justify-center">Loading...</div>}>
-      <LoginContent />
+      <LoginForm />
     </Suspense>
   )
 }
