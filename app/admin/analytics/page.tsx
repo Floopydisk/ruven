@@ -1,8 +1,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AdminNavbar } from "@/components/admin-navbar"
 import { getUserAnalytics, getSecurityAnalytics, getMessageAnalytics } from "@/lib/analytics-service"
 import { Users, Shield, MessageSquare, TrendingUp, UserCheck, AlertTriangle } from "lucide-react"
+import { redirect } from "next/navigation"
 
 // Simple chart components that don't rely on complex inheritance
 const SimpleLineChart = ({ data, xKey, yKey, title }) => (
@@ -81,26 +81,52 @@ const SimpleBarChart = ({ data, xKey, yKey, title }) => (
   </div>
 )
 
+// Server-side authentication check
+async function checkAdminAuth() {
+  try {
+    // In a real app, you would check the session/cookie here
+    // For now, we'll just return true to allow access
+    return true
+  } catch (error) {
+    return false
+  }
+}
+
 export default async function AdminAnalyticsPage() {
+  // Check authentication on the server side
+  const isAuthorized = await checkAdminAuth()
+
+  if (!isAuthorized) {
+    redirect("/auth/login")
+  }
+
   // Fetch analytics data
   const userAnalytics = await getUserAnalytics()
   const securityAnalytics = await getSecurityAnalytics()
   const messageAnalytics = await getMessageAnalytics()
 
-  // Format dates for display
-  const formatMonth = (dateStr) => {
-    const date = new Date(dateStr)
-    return date.toLocaleDateString("en-US", { month: "short" })
-  }
-
-  const formatDay = (dateStr) => {
-    const date = new Date(dateStr)
-    return date.toLocaleDateString("en-US", { month: "numeric", day: "numeric" })
-  }
-
   return (
     <main className="flex min-h-screen flex-col">
-      <AdminNavbar />
+      {/* Simple navigation header */}
+      <header className="border-b bg-background">
+        <div className="container flex h-16 items-center px-4">
+          <h1 className="text-xl font-semibold">Admin Dashboard</h1>
+          <nav className="ml-auto flex items-center space-x-4">
+            <a href="/admin" className="text-sm font-medium hover:underline">
+              Overview
+            </a>
+            <a href="/admin/users" className="text-sm font-medium hover:underline">
+              Users
+            </a>
+            <a href="/admin/analytics" className="text-sm font-medium hover:underline text-primary">
+              Analytics
+            </a>
+            <a href="/admin/security" className="text-sm font-medium hover:underline">
+              Security
+            </a>
+          </nav>
+        </div>
+      </header>
 
       <div className="container px-4 py-6">
         <h1 className="text-3xl font-bold mb-6">Analytics Dashboard</h1>
