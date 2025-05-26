@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  swcMinify: true,
   eslint: {
     ignoreDuringBuilds: true,
   },
@@ -11,12 +12,16 @@ const nextConfig = {
     domains: ['localhost', 'res.cloudinary.com', 'images.unsplash.com', 'via.placeholder.com'],
     unoptimized: true,
   },
-  serverExternalPackages: ['@neondatabase/serverless'],
-
-  // Disable static optimization for problematic pages
+  experimental: {
+    serverComponentsExternalPackages: ['@neondatabase/serverless'],
+  },
+  // Disable static generation for problematic pages
+  generateStaticParams: false,
   staticPageGenerationTimeout: 60,
   // Add trailing slash to avoid issues with 404 handling
   trailingSlash: true,
+  // Disable static optimization
+  output: undefined,
 };
 
 export default nextConfig;

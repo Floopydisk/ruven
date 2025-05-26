@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshUser = useCallback(async () => {
     try {
       setIsLoading(true)
-      const res = await fetch("/api/auth/me/", {
+      const res = await fetch("/api/auth/me", {
         headers: {
           "Content-Type": "application/json",
         },
