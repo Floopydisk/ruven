@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 export default function NotFound() {
   return (
     <html lang="en">
