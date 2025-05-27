@@ -1,30 +1,89 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { AdminNavbar } from "@/components/admin-navbar"
 import { getUserAnalytics, getSecurityAnalytics, getMessageAnalytics } from "@/lib/analytics-service"
 import { Users, Shield, MessageSquare, TrendingUp, UserCheck, AlertTriangle } from "lucide-react"
+import { redirect } from "next/navigation"
 
-// Simple chart components that don't rely on complex inheritance
-const SimpleLineChart = ({ data, xKey, yKey, title }) => (
-  <div className="h-[300px] w-full relative">
-    <div className="absolute top-0 left-0 right-0 text-center font-medium">{title}</div>
-    <div className="flex items-end h-[250px] mt-8 w-full">
-      {data.map((item, index) => (
-        <div key={index} className="flex flex-col items-center flex-1">
-          <div
-            className="bg-primary w-4 rounded-t-sm"
-            style={{ height: `${(item[yKey] / Math.max(...data.map((d) => d[yKey]))) * 200}px` }}
-          ></div>
-          <div className="text-xs mt-1 truncate w-full text-center">{item[xKey]}</div>
-        </div>
-      ))}
+// Helper function to format dates
+function formatDate(date: any): string {
+  if (!date) return ""
+  try {
+    const d = new Date(date)
+    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+  } catch {
+    return String(date)
+  }
+}
+
+function formatMonth(date: any): string {
+  if (!date) return ""
+  try {
+    const d = new Date(date)
+    return d.toLocaleDateString("en-US", { month: "short" })
+  } catch {
+    return String(date)
+  }
+}
+
+// Simple chart components that properly handle data formatting
+const SimpleLineChart = ({ data, xKey, yKey, title }: any) => {
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    return (
+      <div className="h-[300px] w-full flex items-center justify-center">
+        <p className="text-muted-foreground">No data available</p>
+      </div>
+    )
+  }
+
+  const maxValue = Math.max(...data.map((d) => Number(d[yKey]) || 0))
+
+  return (
+    <div className="h-[300px] w-full relative">
+      <div className="absolute top-0 left-0 right-0 text-center font-medium">{title}</div>
+      <div className="flex items-end h-[250px] mt-8 w-full gap-1">
+        {data.map((item, index) => {
+          const value = Number(item[yKey]) || 0
+          const height = maxValue > 0 ? (value / maxValue) * 200 : 0
+          const label =
+            xKey === "month"
+              ? formatMonth(item[xKey])
+              : xKey === "day"
+                ? formatDate(item[xKey])
+                : String(item[xKey] || "")
+
+          return (
+            <div key={index} className="flex flex-col items-center flex-1">
+              <div className="bg-primary w-4 rounded-t-sm" style={{ height: `${height}px` }}></div>
+              <div className="text-xs mt-1 truncate w-full text-center" title={label}>
+                {label}
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </div>
-  </div>
-)
+  )
+}
 
-const SimplePieChart = ({ data, valueKey, nameKey, title }) => {
-  const total = data.reduce((sum, item) => sum + item[valueKey], 0)
+const SimplePieChart = ({ data, valueKey, nameKey, title }: any) => {
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    return (
+      <div className="h-[300px] w-full flex items-center justify-center">
+        <p className="text-muted-foreground">No data available</p>
+      </div>
+    )
+  }
+
+  const total = data.reduce((sum, item) => sum + (Number(item[valueKey]) || 0), 0)
   const colors = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8", "#82ca9d"]
+
+  if (total === 0) {
+    return (
+      <div className="h-[300px] w-full flex items-center justify-center">
+        <p className="text-muted-foreground">No data available</p>
+      </div>
+    )
+  }
 
   return (
     <div className="h-[300px] w-full relative">
@@ -32,10 +91,13 @@ const SimplePieChart = ({ data, valueKey, nameKey, title }) => {
       <div className="flex justify-center items-center h-[250px] mt-8">
         <div className="relative w-[200px] h-[200px]">
           {data.map((item, index) => {
-            const percentage = (item[valueKey] / total) * 100
+            const value = Number(item[valueKey]) || 0
+            const percentage = (value / total) * 100
             const startAngle =
-              index === 0 ? 0 : data.slice(0, index).reduce((sum, d) => sum + (d[valueKey] / total) * 360, 0)
-            const endAngle = startAngle + (item[valueKey] / total) * 360
+              index === 0
+                ? 0
+                : data.slice(0, index).reduce((sum, d) => sum + ((Number(d[valueKey]) || 0) / total) * 360, 0)
+            const endAngle = startAngle + (value / total) * 360
 
             return (
               <div key={index} className="absolute inset-0">
@@ -51,56 +113,121 @@ const SimplePieChart = ({ data, valueKey, nameKey, title }) => {
         </div>
       </div>
       <div className="flex flex-wrap justify-center gap-2 mt-4">
-        {data.map((item, index) => (
-          <div key={index} className="flex items-center text-xs">
-            <div className="w-3 h-3 mr-1" style={{ backgroundColor: colors[index % colors.length] }}></div>
-            <span>
-              {item[nameKey]}: {((item[valueKey] / total) * 100).toFixed(0)}%
-            </span>
-          </div>
-        ))}
+        {data.map((item, index) => {
+          const value = Number(item[valueKey]) || 0
+          const percentage = total > 0 ? ((value / total) * 100).toFixed(0) : "0"
+          return (
+            <div key={index} className="flex items-center text-xs">
+              <div className="w-3 h-3 mr-1" style={{ backgroundColor: colors[index % colors.length] }}></div>
+              <span>
+                {String(item[nameKey] || "Unknown")}: {percentage}%
+              </span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
 }
 
-const SimpleBarChart = ({ data, xKey, yKey, title }) => (
-  <div className="h-[300px] w-full relative">
-    <div className="absolute top-0 left-0 right-0 text-center font-medium">{title}</div>
-    <div className="flex items-end h-[250px] mt-8 w-full">
-      {data.map((item, index) => (
-        <div key={index} className="flex flex-col items-center flex-1">
-          <div
-            className="bg-blue-500 w-6 rounded-t-sm"
-            style={{ height: `${(item[yKey] / Math.max(...data.map((d) => d[yKey]))) * 200}px` }}
-          ></div>
-          <div className="text-xs mt-1 truncate w-full text-center">{item[xKey]}</div>
-        </div>
-      ))}
-    </div>
-  </div>
-)
-
-export default async function AdminAnalyticsPage() {
-  // Fetch analytics data
-  const userAnalytics = await getUserAnalytics()
-  const securityAnalytics = await getSecurityAnalytics()
-  const messageAnalytics = await getMessageAnalytics()
-
-  // Format dates for display
-  const formatMonth = (dateStr) => {
-    const date = new Date(dateStr)
-    return date.toLocaleDateString("en-US", { month: "short" })
+const SimpleBarChart = ({ data, xKey, yKey, title }: any) => {
+  if (!data || !Array.isArray(data) || data.length === 0) {
+    return (
+      <div className="h-[300px] w-full flex items-center justify-center">
+        <p className="text-muted-foreground">No data available</p>
+      </div>
+    )
   }
 
-  const formatDay = (dateStr) => {
-    const date = new Date(dateStr)
-    return date.toLocaleDateString("en-US", { month: "numeric", day: "numeric" })
+  const maxValue = Math.max(...data.map((d) => Number(d[yKey]) || 0))
+
+  return (
+    <div className="h-[300px] w-full relative">
+      <div className="absolute top-0 left-0 right-0 text-center font-medium">{title}</div>
+      <div className="flex items-end h-[250px] mt-8 w-full gap-1">
+        {data.map((item, index) => {
+          const value = Number(item[yKey]) || 0
+          const height = maxValue > 0 ? (value / maxValue) * 200 : 0
+          const label = String(item[xKey] || "")
+
+          return (
+            <div key={index} className="flex flex-col items-center flex-1">
+              <div className="bg-blue-500 w-6 rounded-t-sm" style={{ height: `${height}px` }}></div>
+              <div className="text-xs mt-1 truncate w-full text-center" title={label}>
+                {label.length > 10 ? `${label.substring(0, 10)}...` : label}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// Server-side authentication check
+async function checkAdminAuth() {
+  try {
+    // In a real app, you would check the session/cookie here
+    // For now, we'll just return true to allow access
+    return true
+  } catch (error) {
+    return false
+  }
+}
+
+export default async function AdminAnalyticsPage() {
+  // Check authentication on the server side
+  const isAuthorized = await checkAdminAuth()
+
+  if (!isAuthorized) {
+    redirect("/auth/login")
+  }
+
+  // Fetch analytics data with error handling
+  let userAnalytics = null
+  let securityAnalytics = null
+  let messageAnalytics = null
+
+  try {
+    userAnalytics = await getUserAnalytics()
+  } catch (error) {
+    console.error("Error fetching user analytics:", error)
+  }
+
+  try {
+    securityAnalytics = await getSecurityAnalytics()
+  } catch (error) {
+    console.error("Error fetching security analytics:", error)
+  }
+
+  try {
+    messageAnalytics = await getMessageAnalytics()
+  } catch (error) {
+    console.error("Error fetching message analytics:", error)
   }
 
   return (
     <main className="flex min-h-screen flex-col">
-      <AdminNavbar />
+      {/* Simple navigation header */}
+      <header className="border-b bg-background">
+        <div className="container flex h-16 items-center px-4">
+          <h1 className="text-xl font-semibold">Admin Dashboard</h1>
+          <nav className="ml-auto flex items-center space-x-4">
+            <a href="/admin" className="text-sm font-medium hover:underline">
+              Overview
+            </a>
+            <a href="/admin/users" className="text-sm font-medium hover:underline">
+              Users
+            </a>
+            <a href="/admin/analytics" className="text-sm font-medium hover:underline text-primary">
+              Analytics
+            </a>
+            <a href="/admin/security" className="text-sm font-medium hover:underline">
+              Security
+            </a>
+          </nav>
+        </div>
+      </header>
 
       <div className="container px-4 py-6">
         <h1 className="text-3xl font-bold mb-6">Analytics Dashboard</h1>
