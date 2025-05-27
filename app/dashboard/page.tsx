@@ -1,11 +1,41 @@
+"use client"
+
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { NavBar } from "@/components/nav-bar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MessageSquare, ShoppingBag, User, Bell, BarChart3, Activity, Calendar } from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
 
 export default function DashboardPage() {
+  const [mounted, setMounted] = useState(false)
+  const { user, isLoading, isAuthenticated } = useAuth()
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Don't render anything until mounted to avoid hydration issues
+  if (!mounted) {
+    return (
+      <main className="flex min-h-screen flex-col">
+        <div className="flex-1 p-6">
+          <div className="animate-pulse">
+            <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
+            <div className="h-4 bg-gray-200 rounded w-1/2 mb-8"></div>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-32 bg-gray-200 rounded"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
   const currentDate = new Date()
   const formattedDate = currentDate.toLocaleDateString("en-US", {
     month: "long",
@@ -69,7 +99,9 @@ export default function DashboardPage() {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
             <div>
               <h1 className="text-2xl font-bold">Dashboard Overview</h1>
-              <p className="text-muted-foreground">Welcome back to your student dashboard</p>
+              <p className="text-muted-foreground">
+                Welcome back{user?.firstName ? `, ${user.firstName}` : ""} to your student dashboard
+              </p>
             </div>
             <div className="mt-4 md:mt-0 p-3 bg-secondary/50 rounded-lg border border-border/50">
               <div className="text-center">

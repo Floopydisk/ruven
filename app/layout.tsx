@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { Suspense } from "react"
+import { AuthProvider } from "@/contexts/auth-context"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -14,7 +15,11 @@ export const metadata: Metadata = {
 
 // Create a client wrapper for the AuthProvider
 function ClientProviders({ children }: { children: React.ReactNode }) {
-  return <Suspense fallback={<div className="min-h-screen bg-gray-50">{children}</div>}>{children}</Suspense>
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>}>
+      <AuthProvider>{children}</AuthProvider>
+    </Suspense>
+  )
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
