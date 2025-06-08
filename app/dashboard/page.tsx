@@ -6,375 +6,411 @@ import { NavBar } from "@/components/nav-bar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { MessageSquare, ShoppingBag, User, Bell, BarChart3, Activity, Calendar } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
+import {
+  MessageSquare,
+  ShoppingBag,
+  User,
+  Bell,
+  BarChart3,
+  Activity,
+  Calendar,
+  TrendingUp,
+  Star,
+  Zap,
+  Coffee,
+  Laptop,
+  BookOpen,
+} from "lucide-react"
 
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false)
-  const { user, isLoading, isAuthenticated } = useAuth()
+  const [currentTime, setCurrentTime] = useState(new Date())
+  const { user, isLoading } = useAuth()
 
   useEffect(() => {
     setMounted(true)
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000)
+    return () => clearInterval(timer)
   }, [])
 
-  // Don't render anything until mounted to avoid hydration issues
   if (!mounted) {
     return (
-      <main className="flex min-h-screen flex-col">
-        <div className="flex-1 p-6">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-1/4 mb-4"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2 mb-8"></div>
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-32 bg-gray-200 rounded"></div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </main>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
     )
   }
 
-  const currentDate = new Date()
-  const formattedDate = currentDate.toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  })
+  const stats = [
+    {
+      title: "Messages",
+      value: "12",
+      subtitle: "3 unread",
+      icon: MessageSquare,
+      color: "text-blue-400",
+      bgColor: "bg-blue-500/20",
+      progress: 75,
+    },
+    {
+      title: "Vendors Followed",
+      value: "8",
+      subtitle: "2 new updates",
+      icon: ShoppingBag,
+      color: "text-purple-400",
+      bgColor: "bg-purple-500/20",
+      progress: 40,
+    },
+    {
+      title: "Notifications",
+      value: "5",
+      subtitle: "View all",
+      icon: Bell,
+      color: "text-green-400",
+      bgColor: "bg-green-500/20",
+      progress: 25,
+    },
+  ]
 
-  const hours = currentDate.getHours().toString().padStart(2, "0")
-  const minutes = currentDate.getMinutes().toString().padStart(2, "0")
-  const seconds = currentDate.getSeconds().toString().padStart(2, "0")
-  const timeString = `${hours}:${minutes}:${seconds}`
+  const activities = [
+    {
+      type: "promotion",
+      title: "New vendor promotion",
+      description: "Campus Coffee is offering 20% off this week",
+      time: "2 hours ago",
+      icon: Activity,
+      color: "text-orange-400",
+    },
+    {
+      type: "message",
+      title: "Message from Campus Books",
+      description: "Your order has been shipped",
+      time: "Yesterday",
+      icon: MessageSquare,
+      color: "text-blue-400",
+    },
+    {
+      type: "event",
+      title: "Vendor Event",
+      description: "Food Truck Festival this weekend",
+      time: "3 days ago",
+      icon: Calendar,
+      color: "text-purple-400",
+    },
+  ]
+
+  const popularVendors = [
+    {
+      name: "Campus Coffee",
+      category: "Coffee & Snacks",
+      icon: Coffee,
+      rating: 4.9,
+      gradient: "from-orange-500 to-red-600",
+    },
+    {
+      name: "Campus Books",
+      category: "Books & Supplies",
+      icon: BookOpen,
+      rating: 4.8,
+      gradient: "from-blue-500 to-purple-600",
+    },
+    {
+      name: "Tech Hub",
+      category: "Electronics & Repairs",
+      icon: Laptop,
+      rating: 4.7,
+      gradient: "from-green-500 to-teal-600",
+    },
+  ]
+
+  const recentMessages = [
+    {
+      vendor: "Campus Coffee",
+      message: "Thanks for your order! Your coffee will be ready in 5 minutes.",
+      time: "10:23 AM",
+      unread: true,
+    },
+    {
+      vendor: "Campus Books",
+      message: "Your order has been shipped and will arrive in 2-3 business days.",
+      time: "Yesterday",
+      unread: false,
+    },
+    {
+      vendor: "Tech Hub",
+      message: "Your laptop repair is complete. You can pick it up anytime.",
+      time: "3 days ago",
+      unread: false,
+    },
+  ]
 
   return (
-    <main className="flex min-h-screen flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
       <NavBar />
+
       <div className="flex flex-1">
-        {/* Sidebar */}
-        <div className="hidden md:flex dashboard-sidebar flex-col">
-          <div className="p-4 border-b border-border/50">
-            <h2 className="font-semibold text-lg">UniVendor</h2>
-            <p className="text-xs text-muted-foreground">Student Dashboard</p>
-          </div>
-          <div className="flex-1 py-4 px-2">
-            <nav className="space-y-1">
-              <Link href="/dashboard" className="dashboard-sidebar-item active">
-                <BarChart3 className="h-4 w-4" />
-                <span>Dashboard</span>
+        {/* Modern Sidebar */}
+        <div className="hidden md:flex w-64 bg-slate-800/50 backdrop-blur-sm border-r border-slate-700">
+          <div className="flex flex-col w-full">
+            <div className="p-6 border-b border-slate-700">
+              <h2 className="font-bold text-xl bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                UniVendor
+              </h2>
+              <p className="text-xs text-slate-400 mt-1">Student Dashboard</p>
+            </div>
+
+            <nav className="flex-1 p-4 space-y-2">
+              <Link
+                href="/dashboard"
+                className="flex items-center px-4 py-3 bg-blue-500/20 text-blue-400 rounded-lg border border-blue-500/30"
+              >
+                <BarChart3 className="h-5 w-5 mr-3" />
+                <span className="font-medium">Dashboard</span>
               </Link>
-              <Link href="/messages" className="dashboard-sidebar-item">
-                <MessageSquare className="h-4 w-4" />
+              <Link
+                href="/messages"
+                className="flex items-center px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all"
+              >
+                <MessageSquare className="h-5 w-5 mr-3" />
                 <span>Messages</span>
               </Link>
-              <Link href="/browse" className="dashboard-sidebar-item">
-                <ShoppingBag className="h-4 w-4" />
+              <Link
+                href="/browse"
+                className="flex items-center px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all"
+              >
+                <ShoppingBag className="h-5 w-5 mr-3" />
                 <span>Browse Vendors</span>
               </Link>
-              <Link href="/profile" className="dashboard-sidebar-item">
-                <User className="h-4 w-4" />
+              <Link
+                href="/profile"
+                className="flex items-center px-4 py-3 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all"
+              >
+                <User className="h-5 w-5 mr-3" />
                 <span>Profile</span>
               </Link>
             </nav>
-          </div>
-          <div className="p-4 border-t border-border/50">
-            <div className="text-xs text-muted-foreground">
-              <div className="flex justify-between">
-                <span>System Status</span>
-                <span className="text-green-500">Online</span>
-              </div>
-              <div className="mt-2 flex items-center">
-                <div className="w-full bg-muted rounded-full h-1.5">
-                  <div className="bg-primary h-1.5 rounded-full" style={{ width: "92%" }}></div>
+
+            <div className="p-4 border-t border-slate-700">
+              <div className="bg-slate-700/50 rounded-lg p-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-xs text-slate-400">System Status</span>
+                  <span className="text-xs text-green-400 flex items-center">
+                    <div className="w-2 h-2 bg-green-400 rounded-full mr-1 animate-pulse"></div>
+                    Online
+                  </span>
                 </div>
-                <span className="ml-2 text-xs">92%</span>
+                <div className="w-full bg-slate-600 rounded-full h-2">
+                  <div
+                    className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full"
+                    style={{ width: "92%" }}
+                  ></div>
+                </div>
+                <span className="text-xs text-slate-400 mt-1">92% Performance</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Main content */}
+        {/* Main Content */}
         <div className="flex-1 p-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+          {/* Header */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
             <div>
-              <h1 className="text-2xl font-bold">Dashboard Overview</h1>
-              <p className="text-muted-foreground">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                Dashboard Overview
+              </h1>
+              <p className="text-slate-400 mt-1">
                 Welcome back{user?.firstName ? `, ${user.firstName}` : ""} to your student dashboard
               </p>
             </div>
-            <div className="mt-4 md:mt-0 p-3 bg-secondary/50 rounded-lg border border-border/50">
+
+            <div className="mt-4 md:mt-0 bg-slate-800/50 backdrop-blur-sm rounded-xl p-4 border border-slate-700">
               <div className="text-center">
-                <div className="text-2xl font-mono text-primary">{timeString}</div>
-                <div className="text-xs text-muted-foreground">{formattedDate}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Stats row */}
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-6">
-            <div className="stat-card">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="stat-label">Messages</p>
-                  <p className="stat-value">12</p>
-                  <p className="text-xs text-primary mt-1">3 unread</p>
+                <div className="text-2xl font-mono text-blue-400">
+                  {currentTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </div>
-                <div className="p-2 rounded-full bg-primary/10">
-                  <MessageSquare className="h-5 w-5 text-primary" />
-                </div>
-              </div>
-              <div className="mt-4">
-                <div className="progress-bar">
-                  <div className="progress-bar-value" style={{ width: "75%" }}></div>
-                </div>
-              </div>
-            </div>
-
-            <div className="stat-card">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="stat-label">Vendors Followed</p>
-                  <p className="stat-value">8</p>
-                  <p className="text-xs text-primary mt-1">2 new updates</p>
-                </div>
-                <div className="p-2 rounded-full bg-primary/10">
-                  <ShoppingBag className="h-5 w-5 text-primary" />
-                </div>
-              </div>
-              <div className="mt-4">
-                <div className="progress-bar">
-                  <div className="progress-bar-value" style={{ width: "40%" }}></div>
-                </div>
-              </div>
-            </div>
-
-            <div className="stat-card">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="stat-label">Notifications</p>
-                  <p className="stat-value">5</p>
-                  <p className="text-xs text-primary mt-1">View all</p>
-                </div>
-                <div className="p-2 rounded-full bg-primary/10">
-                  <Bell className="h-5 w-5 text-primary" />
-                </div>
-              </div>
-              <div className="mt-4">
-                <div className="progress-bar">
-                  <div className="progress-bar-value" style={{ width: "25%" }}></div>
+                <div className="text-xs text-slate-400">
+                  {currentTime.toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" })}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Tabs section */}
-          <Tabs defaultValue="activity" className="mt-6">
-            <TabsList className="grid w-full grid-cols-3 mb-4">
-              <TabsTrigger value="activity">Recent Activity</TabsTrigger>
-              <TabsTrigger value="vendors">Popular Vendors</TabsTrigger>
-              <TabsTrigger value="messages">Recent Messages</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="activity" className="space-y-4">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">Activity Feed</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {/* Activity items */}
-                    <div className="flex items-start gap-4 pb-4 border-b border-border/50">
-                      <div className="p-2 rounded-full bg-primary/10">
-                        <Activity className="h-4 w-4 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-medium">New vendor promotion</p>
-                        <p className="text-sm text-muted-foreground">Campus Coffee is offering 20% off this week</p>
-                        <p className="text-xs text-muted-foreground mt-1">2 hours ago</p>
-                      </div>
+          {/* Stats Cards */}
+          <div className="grid md:grid-cols-3 gap-6 mb-8">
+            {stats.map((stat, index) => (
+              <Card
+                key={index}
+                className="bg-slate-800/50 border-slate-700 backdrop-blur-sm hover:scale-105 transition-all duration-300"
+              >
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className="text-slate-400 text-sm">{stat.title}</p>
+                      <p className="text-3xl font-bold text-white">{stat.value}</p>
+                      <p className="text-xs text-blue-400 mt-1">{stat.subtitle}</p>
                     </div>
-
-                    <div className="flex items-start gap-4 pb-4 border-b border-border/50">
-                      <div className="p-2 rounded-full bg-primary/10">
-                        <MessageSquare className="h-4 w-4 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Message from Campus Books</p>
-                        <p className="text-sm text-muted-foreground">Your order has been shipped</p>
-                        <p className="text-xs text-muted-foreground mt-1">Yesterday</p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-start gap-4">
-                      <div className="p-2 rounded-full bg-primary/10">
-                        <Calendar className="h-4 w-4 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Vendor Event</p>
-                        <p className="text-sm text-muted-foreground">Food Truck Festival this weekend</p>
-                        <p className="text-xs text-muted-foreground mt-1">3 days ago</p>
-                      </div>
+                    <div className={`p-3 rounded-xl ${stat.bgColor}`}>
+                      <stat.icon className={`h-6 w-6 ${stat.color}`} />
                     </div>
                   </div>
+                  <div className="w-full bg-slate-700 rounded-full h-2">
+                    <div
+                      className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-1000"
+                      style={{ width: `${stat.progress}%` }}
+                    ></div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Tabs Section */}
+          <Tabs defaultValue="activity" className="space-y-6">
+            <TabsList className="bg-slate-800/50 border border-slate-700">
+              <TabsTrigger value="activity" className="data-[state=active]:bg-blue-600 data-[state=active]:text-white">
+                Recent Activity
+              </TabsTrigger>
+              <TabsTrigger value="vendors" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">
+                Popular Vendors
+              </TabsTrigger>
+              <TabsTrigger value="messages" className="data-[state=active]:bg-green-600 data-[state=active]:text-white">
+                Recent Messages
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="activity">
+              <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="text-xl text-white flex items-center">
+                    <Activity className="h-5 w-5 mr-2 text-blue-400" />
+                    Activity Feed
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {activities.map((activity, index) => (
+                    <div
+                      key={index}
+                      className="flex items-start space-x-4 p-4 bg-slate-700/30 rounded-lg hover:bg-slate-700/50 transition-colors cursor-pointer"
+                    >
+                      <div className="p-2 rounded-lg bg-slate-600/50">
+                        <activity.icon className={`h-5 w-5 ${activity.color}`} />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-white">{activity.title}</h4>
+                        <p className="text-slate-400 text-sm mt-1">{activity.description}</p>
+                        <p className="text-slate-500 text-xs mt-2">{activity.time}</p>
+                      </div>
+                    </div>
+                  ))}
                 </CardContent>
               </Card>
             </TabsContent>
 
             <TabsContent value="vendors">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">Popular Vendors</CardTitle>
+              <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="text-xl text-white flex items-center">
+                    <TrendingUp className="h-5 w-5 mr-2 text-purple-400" />
+                    Popular Vendors
+                  </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <Link
-                      href="/vendors/1"
-                      className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                          <ShoppingBag className="h-5 w-5 text-primary" />
+                <CardContent className="space-y-4">
+                  {popularVendors.map((vendor, index) => (
+                    <Link key={index} href={`/vendors/${index + 1}`}>
+                      <div className="flex items-center justify-between p-4 bg-slate-700/30 rounded-lg hover:bg-slate-700/50 transition-colors cursor-pointer group">
+                        <div className="flex items-center space-x-4">
+                          <div
+                            className={`w-12 h-12 rounded-xl bg-gradient-to-r ${vendor.gradient} flex items-center justify-center group-hover:scale-110 transition-transform`}
+                          >
+                            <vendor.icon className="h-6 w-6 text-white" />
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-white">{vendor.name}</h4>
+                            <p className="text-slate-400 text-sm">{vendor.category}</p>
+                            <div className="flex items-center mt-1">
+                              <Star className="h-4 w-4 text-yellow-400 fill-current" />
+                              <span className="text-sm text-slate-300 ml-1">{vendor.rating}</span>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-medium">Campus Coffee</p>
-                          <p className="text-xs text-muted-foreground">Coffee & Snacks</p>
-                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                        >
+                          View
+                        </Button>
                       </div>
-                      <Button variant="outline" size="sm">
-                        View
-                      </Button>
                     </Link>
-
-                    <Link
-                      href="/vendors/2"
-                      className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                          <ShoppingBag className="h-5 w-5 text-primary" />
-                        </div>
-                        <div>
-                          <p className="font-medium">Campus Books</p>
-                          <p className="text-xs text-muted-foreground">Books & Supplies</p>
-                        </div>
-                      </div>
-                      <Button variant="outline" size="sm">
-                        View
-                      </Button>
-                    </Link>
-
-                    <Link
-                      href="/vendors/3"
-                      className="flex items-center justify-between p-3 rounded-lg bg-secondary/30 hover:bg-secondary/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                          <ShoppingBag className="h-5 w-5 text-primary" />
-                        </div>
-                        <div>
-                          <p className="font-medium">Tech Hub</p>
-                          <p className="text-xs text-muted-foreground">Electronics & Repairs</p>
-                        </div>
-                      </div>
-                      <Button variant="outline" size="sm">
-                        View
-                      </Button>
-                    </Link>
-                  </div>
+                  ))}
                 </CardContent>
               </Card>
             </TabsContent>
 
             <TabsContent value="messages">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">Recent Messages</CardTitle>
+              <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="text-xl text-white flex items-center">
+                    <MessageSquare className="h-5 w-5 mr-2 text-green-400" />
+                    Recent Messages
+                  </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <Link href="/messages/1" className="flex items-start gap-4 pb-4 border-b border-border/50">
-                      <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                        <MessageSquare className="h-5 w-5 text-primary" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex justify-between">
-                          <p className="font-medium">Campus Coffee</p>
-                          <p className="text-xs text-muted-foreground">10:23 AM</p>
+                <CardContent className="space-y-4">
+                  {recentMessages.map((message, index) => (
+                    <Link key={index} href={`/messages/${index + 1}`}>
+                      <div className="flex items-start space-x-4 p-4 bg-slate-700/30 rounded-lg hover:bg-slate-700/50 transition-colors cursor-pointer">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
+                          <MessageSquare className="h-5 w-5 text-white" />
                         </div>
-                        <p className="text-sm text-muted-foreground truncate">
-                          Thanks for your order! Your coffee will be ready in 5 minutes.
-                        </p>
+                        <div className="flex-1">
+                          <div className="flex justify-between items-start">
+                            <h4 className="font-semibold text-white flex items-center">
+                              {message.vendor}
+                              {message.unread && <div className="w-2 h-2 bg-blue-400 rounded-full ml-2"></div>}
+                            </h4>
+                            <span className="text-xs text-slate-500">{message.time}</span>
+                          </div>
+                          <p className="text-slate-400 text-sm mt-1 line-clamp-2">{message.message}</p>
+                        </div>
                       </div>
                     </Link>
-
-                    <Link href="/messages/2" className="flex items-start gap-4 pb-4 border-b border-border/50">
-                      <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                        <MessageSquare className="h-5 w-5 text-primary" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex justify-between">
-                          <p className="font-medium">Campus Books</p>
-                          <p className="text-xs text-muted-foreground">Yesterday</p>
-                        </div>
-                        <p className="text-sm text-muted-foreground truncate">
-                          Your order has been shipped and will arrive in 2-3 business days.
-                        </p>
-                      </div>
-                    </Link>
-
-                    <Link href="/messages/3" className="flex items-start gap-4">
-                      <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                        <MessageSquare className="h-5 w-5 text-primary" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex justify-between">
-                          <p className="font-medium">Tech Hub</p>
-                          <p className="text-xs text-muted-foreground">3 days ago</p>
-                        </div>
-                        <p className="text-sm text-muted-foreground truncate">
-                          Your laptop repair is complete. You can pick it up anytime.
-                        </p>
-                      </div>
-                    </Link>
-                  </div>
+                  ))}
                 </CardContent>
               </Card>
             </TabsContent>
           </Tabs>
 
-          {/* Quick actions */}
-          <div className="mt-6">
-            <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
+          {/* Quick Actions */}
+          <div className="mt-8">
+            <h2 className="text-xl font-bold text-white mb-6 flex items-center">
+              <Zap className="h-5 w-5 mr-2 text-yellow-400" />
+              Quick Actions
+            </h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Link href="/browse">
-                <Button variant="outline" className="w-full h-24 flex flex-col items-center justify-center gap-2">
-                  <ShoppingBag className="h-6 w-6 text-primary" />
-                  <span>Browse Vendors</span>
-                </Button>
-              </Link>
-              <Link href="/messages">
-                <Button variant="outline" className="w-full h-24 flex flex-col items-center justify-center gap-2">
-                  <MessageSquare className="h-6 w-6 text-primary" />
-                  <span>Messages</span>
-                </Button>
-              </Link>
-              <Link href="/profile">
-                <Button variant="outline" className="w-full h-24 flex flex-col items-center justify-center gap-2">
-                  <User className="h-6 w-6 text-primary" />
-                  <span>Profile</span>
-                </Button>
-              </Link>
-              <Link href="/notifications">
-                <Button variant="outline" className="w-full h-24 flex flex-col items-center justify-center gap-2">
-                  <Bell className="h-6 w-6 text-primary" />
-                  <span>Notifications</span>
-                </Button>
-              </Link>
+              {[
+                { href: "/browse", icon: ShoppingBag, label: "Browse Vendors", color: "from-blue-500 to-purple-600" },
+                { href: "/messages", icon: MessageSquare, label: "Messages", color: "from-purple-500 to-pink-600" },
+                { href: "/profile", icon: User, label: "Profile", color: "from-green-500 to-teal-600" },
+                { href: "/notifications", icon: Bell, label: "Notifications", color: "from-orange-500 to-red-600" },
+              ].map((action, index) => (
+                <Link key={index} href={action.href}>
+                  <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm hover:scale-105 transition-all duration-300 cursor-pointer group h-24">
+                    <CardContent className="flex flex-col items-center justify-center h-full p-4">
+                      <div
+                        className={`w-8 h-8 rounded-lg bg-gradient-to-r ${action.color} flex items-center justify-center mb-2 group-hover:scale-110 transition-transform`}
+                      >
+                        <action.icon className="h-4 w-4 text-white" />
+                      </div>
+                      <span className="text-sm font-medium text-white text-center">{action.label}</span>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
             </div>
           </div>
         </div>
       </div>
-    </main>
+    </div>
   )
 }

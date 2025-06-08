@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { createContext, useContext, useState, useEffect, useCallback } from "react"
-import { useRouter, usePathname, useSearchParams } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 
 type User = {
   id: number
@@ -56,17 +56,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isVendor, setIsVendor] = useState(false)
+  const [initialized, setInitialized] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
-  const searchParams = useSearchParams()
 
   const refreshUser = useCallback(async () => {
     try {
-      setIsLoading(true)
       const res = await fetch("/api/auth/me", {
+        method: "GET",
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         cache: "no-store",
       })
 
@@ -77,32 +78,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setIsVendor(data.isVendor || data.user.isVendor || false)
           setIsAuthenticated(true)
           return true
-        } else {
-          setUser(null)
-          setIsVendor(false)
-          setIsAuthenticated(false)
-          return false
         }
-      } else {
-        setUser(null)
-        setIsVendor(false)
-        setIsAuthenticated(false)
-        return false
       }
+
+      // Clear state if not authenticated
+      setUser(null)
+      setIsVendor(false)
+      setIsAuthenticated(false)
+      return false
     } catch (error) {
       console.error("Failed to refresh user:", error)
       setUser(null)
       setIsVendor(false)
       setIsAuthenticated(false)
       return false
-    } finally {
-      setIsLoading(false)
     }
   }, [])
 
+  // Initialize auth state on mount
   useEffect(() => {
-    refreshUser()
-  }, [refreshUser])
+    const initializeAuth = async () => {
+      setIsLoading(true)
+      await refreshUser()
+      setInitialized(true)
+      setIsLoading(false)
+    }
+
+    if (!initialized) {
+      initializeAuth()
+    }
+  }, [refreshUser, initialized])
 
   const login = async (email: string, password: string) => {
     setIsLoading(true)
@@ -112,16 +117,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({ email, password }),
         cache: "no-store",
       })
 
-      if (!res.ok) {
-        const error = await res.json()
-        return { success: false, error: error.error || "Login failed" }
-      }
-
       const data = await res.json()
+
+      if (!res.ok) {
+        return { success: false, error: data.error || "Login failed" }
+      }
 
       // If 2FA is required, return early
       if (data.requiresTwoFactor) {
@@ -136,14 +141,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(data.user)
       setIsVendor(data.isVendor || data.user.isVendor || false)
       setIsAuthenticated(true)
-
-      // Check if there's a redirect URL in the query params
-      const redirect = searchParams?.get("redirect")
-      if (redirect) {
-        router.push(redirect)
-      } else {
-        router.push("/home")
-      }
 
       return { success: true }
     } catch (error) {
@@ -162,27 +159,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify(data),
         cache: "no-store",
       })
 
+      const responseData = await res.json()
+
       if (!res.ok) {
-        const error = await res.json()
-        return { success: false, error: error.error || "Registration failed" }
+        return { success: false, error: responseData.error || "Registration failed" }
       }
 
-      const responseData = await res.json()
       setUser(responseData.user)
       setIsVendor(responseData.isVendor || responseData.user.isVendor || false)
       setIsAuthenticated(true)
-
-      // Check if there's a redirect URL in the query params
-      const redirect = searchParams?.get("redirect")
-      if (redirect) {
-        router.push(redirect)
-      } else {
-        router.push("/home")
-      }
 
       return { success: true }
     } catch (error) {
@@ -196,20 +186,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     setIsLoading(true)
     try {
-      const res = await fetch("/api/auth/logout", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+      await fetch("/api/auth/logout", {
+        method: "GET",
+        credentials: "include",
         cache: "no-store",
       })
 
       setUser(null)
       setIsVendor(false)
       setIsAuthenticated(false)
-
-      // Force a router refresh to update the UI
-      router.refresh()
 
       // Redirect to home page
       router.push("/")
@@ -231,6 +216,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify(data),
         cache: "no-store",
       })
@@ -261,6 +247,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({ currentPassword, newPassword }),
         cache: "no-store",
       })
